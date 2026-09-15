@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-"""抓取 Natural Earth 河道中心线 → data/ne_rivers.geojson
+"""抓取 Natural Earth 河道中心线 → data/ne_rivers.geojson，并裁剪出中国子集
 
 数据集为 `ne_10m_rivers_lake_centerlines`（1:1000 万比例尺），约 1455 个要素、
-7.0 MB。**注意：本项目只用到其中极小一部分** —— geo.py 的 RIVER_SPEC 通过
-「英文河名 + 包围盒」挑出中国境内的 29 条河流。该文件尚未裁剪（低优先级，非错误）。
+7.0 MB。本项目只用到其中中国境内的一小部分 —— geo.py 的 RIVER_SPEC 通过
+「英文河名 + 包围盒」挑出 29 条河流。
+
+因此下载后立即裁剪，产出 `data/ne_rivers_cn.geojson`（约 1.19 MB / 238 要素），
+geo.py 优先读该文件、回退读未裁剪的原始文件。裁剪采用「要素包围盒与中国包围盒
+相交」判据，**只删整条无关要素，不裁剪顶点**，故几何与原始文件逐点一致。
 
 两个下载源：GitHub raw 与 jsDelivr CDN，前者失败则回退到后者。
 坐标系：**WGS-84**（与行政区划的 GCJ-02 不同，详见 README「坐标系约定」）。
@@ -16,6 +20,11 @@ import json, urllib.request, os, ssl, time
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
 os.makedirs(OUT, exist_ok=True)
 dst = os.path.join(OUT, 'ne_rivers.geojson')
+dst_cn = os.path.join(OUT, 'ne_rivers_cn.geojson')
+
+# 中国包围盒（含近海与边境），比 RIVER_SPEC 各 box 的并集
+# （78.40–135.40°E / 21.10–54.00°N）略宽，作为裁剪安全余量。
+CN_BB = (73.0, 136.5, 17.0, 54.5)
 
 ctx = ssl.create_default_context()
 
@@ -37,6 +46,40 @@ if not os.path.exists(dst):
             print('fail', u, e)
             time.sleep(1)
 
+
+def _flat(cs):
+    """把 LineString / MultiLineString 的坐标展平为点序列。"""
+    if not cs:
+        return
+    if isinstance(cs[0], (int, float)):
+        yield cs
+    else:
+        for x in cs:
+            yield from _flat(x)
+
+
+def clip_to_cn(src, target, bb=CN_BB):
+    """裁剪：只保留包围盒与 bb 相交的要素（不裁顶点，几何逐点不变）。"""
+    gj = json.load(open(src, encoding='utf-8'))
+    keep = []
+    for f in gj['features']:
+        g = f.get('geometry')
+        if not g:
+            continue
+        pts = list(_flat(g['coordinates']))
+        if not pts:
+            continue
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        if max(xs) < bb[0] or min(xs) > bb[1] or max(ys) < bb[2] or min(ys) > bb[3]:
+            continue
+        keep.append(f)
+    out = {'type': 'FeatureCollection', 'features': keep}
+    with open(target, 'w', encoding='utf-8', newline='') as fh:
+        json.dump(out, fh, ensure_ascii=False, separators=(',', ':'))
+    return len(gj['features']), len(keep), os.path.getsize(target)
+
+
 if os.path.exists(dst):
     gj = json.load(open(dst, encoding='utf-8'))
     print('features', len(gj['features']))
@@ -48,16 +91,7 @@ if os.path.exists(dst):
         g = f['geometry']
         if not g:
             continue
-        coords = g['coordinates']
-        def flat(cs):
-            if not cs:
-                return
-            if isinstance(cs[0], (int, float)):
-                yield cs
-            else:
-                for x in cs:
-                    yield from flat(x)
-        pts = list(flat(coords))
+        pts = list(_flat(g['coordinates']))
         inCN = sum(1 for x, y in pts if 73 <= x <= 136 and 17 <= y <= 54)
         if inCN < len(pts) * 0.5 or inCN == 0:
             continue
@@ -67,3 +101,8 @@ if os.path.exists(dst):
     print('CN river features:', len(inside))
     for nm, cnt in c.most_common(60):
         print(cnt, nm)
+
+if os.path.exists(dst):
+    n0, n1, sz = clip_to_cn(dst, dst_cn)
+    print('裁剪 → %s：%d → %d 要素，%.2f MB'
+          % (os.path.basename(dst_cn), n0, n1, sz / 1048576))

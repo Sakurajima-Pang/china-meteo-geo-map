@@ -240,9 +240,13 @@ SPLIT = {
                              '商丘市', '周口市', '驻马店市', '三门峡市'],
                'jianghuai': ['信阳市'],
                'jianghan': ['南阳市']},
-    '420000': {'jianghuai': ['孝感市', '黄冈市', '随州市'],
+    # 湖北省内三区切分：江淮取鄂东沿江带（孝感、黄冈、随州、武汉），
+    # 江南取鄂东南（黄石、咸宁、鄂州），江汉取江汉平原及鄂西、鄂北。
+    # 武汉（114.30°E）位于长江与汉江交汇处、被江淮三市环绕，归江淮；
+    # 若归"江淮以西"的江汉，会出现"武汉在孝感以东却属西区"的方位矛盾。
+    '420000': {'jianghuai': ['武汉市', '孝感市', '黄冈市', '随州市'],
                'jiangnan': ['黄石市', '咸宁市', '鄂州市'],
-               'jianghan': ['武汉市', '襄阳市', '荆州市', '宜昌市', '荆门市', '十堰市',
+               'jianghan': ['襄阳市', '荆州市', '宜昌市', '荆门市', '十堰市',
                             '恩施土家族苗族自治州', '仙桃市', '潜江市', '天门市', '神农架林区']},
     '350000': {'jiangnan': ['南平市', '宁德市', '三明市'],
                'huanan': ['福州市', '厦门市', '莆田市', '泉州市', '漳州市', '龙岩市']},
@@ -276,7 +280,7 @@ FEAT = {
     '140000': (['taihangshan', 'luliangshan', 'wutaishan', 'hengshan'], ['r:fenhe', 'r:huanghe']),
     '150000': (['daxinganling', 'yinshan', 'helanshan'], ['r:huanghe', 'l:hulunhu']),
     '210000': (['qianshan', 'yiwulvshan', 'changbaishan'], ['r:liaohe']),
-    '220000': (['changbaishan', 'zhangguangcailing'], ['r:songhuajiang', 'r:tumenjiang', 'r:yalvjiang']),
+    '220000': (['changbaishan', 'zhangguangcailing'], ['r:songhuajiang', 'r:tumenjiang', 'r:yalujiang']),
     '230000': (['daxinganling', 'xiaoxinganling', 'zhangguangcailing'],
                ['r:heilongjiang', 'r:songhuajiang', 'r:wusulijiang']),
     '310000': (['sheshan'], ['r:changjiang']),
@@ -447,38 +451,44 @@ if _bad:
 
 # 门禁 3：EXTRA_RIVERS 声明的"整条缺失"必须成立——该河的英文名不得存在于 NE 的中国河流集合中。
 # （本条用于防止再次出现"NE 中本有真实河道却被手工线替代"的错误）
+# 注：与 geo.py 一致，优先读裁剪版 ne_rivers_cn.geojson。文件缺失时**报错而非跳过** ——
+# 静默跳过会让本条门禁形同虚设，而"跳过"与"通过"在构建日志里无法区分。
 _NE_KEYWORD = {'nandujiang': 'Nandu'}
-_nepath = os.path.join(HERE, '..', 'data', 'ne_rivers.geojson')
-if os.path.exists(_nepath):
-    _ne = json.load(open(_nepath, encoding='utf-8'))
-    def _flatc(c):
-        if not c:
-            return
-        if isinstance(c[0], (int, float)):
-            yield c
-            return
-        for x in c:
-            if x:
-                yield from _flatc(x)
-    _necn = set()
-    for _f in _ne['features']:
-        _g = _f['geometry']
-        if not _g or not _g.get('coordinates') or _f['properties'].get('featurecla') != 'River':
-            continue
-        _p = list(_flatc(_g['coordinates']))
-        if not _p or not all(73 <= a <= 136 and 17 <= b <= 54 for a, b in _p):
-            continue
-        if _f['properties'].get('name'):
-            _necn.add(_f['properties']['name'])
-    _conflict = []
-    for _rid in EXTRA_RIVERS:
-        _kw = _NE_KEYWORD.get(_rid)
-        if _kw is None:
-            _conflict.append('%s 未在 _NE_KEYWORD 中登记核对关键词' % _rid)
-        elif _kw in _necn:
-            _conflict.append('%s 声称缺失，但 NE 中存在要素「%s」——请改用真实河道' % (_rid, _kw))
-    if _conflict:
-        raise SystemExit('补充河流主张不成立:\n  ' + '\n  '.join(_conflict))
+_nepath = next((os.path.join(HERE, '..', 'data', f) for f in
+                ('ne_rivers_cn.geojson', 'ne_rivers.geojson')
+                if os.path.exists(os.path.join(HERE, '..', 'data', f))), None)
+if _nepath is None:
+    raise SystemExit('门禁 3 无法执行：data/ 下既无 ne_rivers_cn.geojson 也无 ne_rivers.geojson。\n'
+                     '  请先运行 python build/build.py --fetch 抓取河流原始数据。')
+_ne = json.load(open(_nepath, encoding='utf-8'))
+def _flatc(c):
+    if not c:
+        return
+    if isinstance(c[0], (int, float)):
+        yield c
+        return
+    for x in c:
+        if x:
+            yield from _flatc(x)
+_necn = set()
+for _f in _ne['features']:
+    _g = _f['geometry']
+    if not _g or not _g.get('coordinates') or _f['properties'].get('featurecla') != 'River':
+        continue
+    _p = list(_flatc(_g['coordinates']))
+    if not _p or not all(73 <= a <= 136 and 17 <= b <= 54 for a, b in _p):
+        continue
+    if _f['properties'].get('name'):
+        _necn.add(_f['properties']['name'])
+_conflict = []
+for _rid in EXTRA_RIVERS:
+    _kw = _NE_KEYWORD.get(_rid)
+    if _kw is None:
+        _conflict.append('%s 未在 _NE_KEYWORD 中登记核对关键词' % _rid)
+    elif _kw in _necn:
+        _conflict.append('%s 声称缺失，但 NE 中存在要素「%s」——请改用真实河道' % (_rid, _kw))
+if _conflict:
+    raise SystemExit('补充河流主张不成立:\n  ' + '\n  '.join(_conflict))
 
 data = {
     'rivers': rivers,

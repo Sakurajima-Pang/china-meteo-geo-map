@@ -184,6 +184,18 @@ function merc(lng, lat){ return [lng*RAD, Math.log(Math.tan(Math.PI/4 + lat*RAD/
 var MAIN_BB  = {lng:[73,135.5], lat:[17.6,53.8]};
 var INSET_BB = {lng:[104.5,125], lat:[2.5,24.5]};
 var VW = 1000, VH = 739;
+
+/* ---------- 视图与制图阈值（单点配置，勿在别处硬编码） ----------
+   MAIN_LAT_MIN：主图保留外环最大纬度 ≥ 此值的多边形。用于把南海诸岛诸岛礁
+                 排除出主图、只在附图呈现（岛礁实际面积在该比例下不足 1 像素，
+                 并入主图会把主图纵向拉长且不符合制图惯例）。
+   省级底图、选中省、省下辖市、区划面、图例面共 5 处渲染统一引用本常量。 */
+var MAIN_LAT_MIN = 17.8;
+/* SMALL_LABEL_VERTS：省名标签切换小字号的顶点数阈值。
+   顶点多 = 海岸线曲折/岛屿多的省份（如浙江、福建、广东），用小字号避免标签压线。
+   原以实现细节 p.g.length > 10 隐式代理，现改为显式常量并在此声明意图。 */
+var SMALL_LABEL_VERTS = 10;
+
 function makeProj(bb, vw, vh, pad){
   var p0 = merc(bb.lng[0], bb.lat[0]), p1 = merc(bb.lng[1], bb.lat[1]);
   var w = p1[0]-p0[0], h = p1[1]-p0[1];
@@ -226,12 +238,35 @@ function geomPath(geom, P, v, mode){
 /* 注：区划标签位置由数据中的 pos 指定，不做几何包围盒计算 */
 
 /* ---------- 数据索引 ---------- */
-/* 数据由 build/assemble.py 注入到上方 <script> 的数据占位符位置。
+/* 数据由 build/assemble.py 注入到上方脚本块的数据占位符位置。
    字段名是缩写的，对照：p=省份 ci=市级 jd=九段线 rv=河流 mt=山脉 lk=湖泊
    rg=一级区划 pr=省份→区划 feat=省级要素清单 info=省份简称/省会
    ec=补充点位单元（台湾下辖县市） isles=南海岛礁符号
-   这里预先建好各张索引表，避免渲染时反复线性查找。 */
-var DATA_ = DATA;
+   这里预先建好各张索引表，避免渲染时反复线性查找。
+
+   ⚠ 健壮性：DATA 正常构建下必然齐备，但若 HTML 被手工编辑、传输损坏或注入失败，
+   下面的索引构建会在 `DATA_.p.forEach` 处直接抛 ReferenceError/TypeError，
+   表现为整页白屏且无任何提示。故先在此处做字段断言，缺失时给出可读提示。
+   注：本注释内不可书写 script 标签字面量，否则会提前终止脚本块解析。 */
+function bootFail(miss){
+  var host = document.getElementById("panel") || document.body;
+  var msg = document.createElement("div");
+  msg.style.cssText = "margin:24px;padding:16px 18px;border:1px solid #f3cccc;" +
+    "background:#fdeded;color:#932222;border-radius:10px;font-size:14px;line-height:1.8";
+  msg.textContent = "地图数据未能载入" +
+    (miss && miss.length ? "（缺少字段：" + miss.join("、") + "）" : "") +
+    "。本页面依赖构建脚本注入的内嵌数据，请重新运行 build/build.py 生成后再打开。";
+  if(host.parentNode) host.parentNode.insertBefore(msg, host); else document.body.appendChild(msg);
+  if(window.console && console.error) console.error("[map] 数据字段缺失:", miss);
+}
+var DATA_ = (typeof DATA !== "undefined") ? DATA : null;
+var _need = ["p","ci","rv","mt","lk","rg","pr","feat","info"];
+var _miss = DATA_ ? _need.filter(function(k){ return DATA_[k] == null; }) : [];
+if(!DATA_ || _miss.length){
+  bootFail(_miss);
+  return;   /* 数据不可用：终止初始化，避免后续抛错造成白屏 */
+}
+
 var PROV = {}, CITY = DATA_.ci, MT = DATA_.mt, LK = DATA_.lk, RV = DATA_.rv, EC = DATA_.ec || {};
 DATA_.p.forEach(function(p){ PROV[p.a] = p; });
 var REGION = {}; DATA_.rg.forEach(function(r){ REGION[r.id] = r; });
@@ -272,12 +307,12 @@ svg.appendChild(gRoot);
 [gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach(function(g){ g.setAttribute("clip-path","url(#clipMain)"); });
 
 /* ---------- 省级底图 ---------- */
-/* 按省份逐个建 path。第三、四个参数 (17.8, "keep") 是南海岛礁的剔除规则：
-   外环最大纬度 >= 17.8°N 才保留，使南海岛礁只在附图呈现、不污染主图。
+/* 按省份逐个建 path。第三、四个参数 (MAIN_LAT_MIN, "keep") 是南海岛礁的剔除规则：
+   外环最大纬度 >= MAIN_LAT_MIN 才保留，使南海岛礁只在附图呈现、不污染主图。
    每个省份同时挂上鼠标、键盘两类事件，保证不仅是鼠标可达。 */
 var provEl = {};
 DATA_.p.forEach(function(p){
-  var d = geomPath(p.g, PM, 17.8, "keep");
+  var d = geomPath(p.g, PM, MAIN_LAT_MIN, "keep");
   var rid = DATA_.pr[p.a] || [];
   var el = mk("path", {d:d, "fill-rule":"evenodd", "class":"pv", "data-ad":p.a,
     "tabindex":"0", role:"button",
@@ -345,7 +380,7 @@ function drawLabels(){
     for(i = 0; i < rl.length; i++){
       if(Math.abs(rl[i][0]-x) < 40 && Math.abs(rl[i][1]-y) < 22) return;   /* 与区划名冲突则让位 */
     }
-    gLabel.appendChild(txt("text", {"class":"lbl" + (p.g.length > 10 ? " sm" : ""),
+    gLabel.appendChild(txt("text", {"class":"lbl" + (p.g.length > SMALL_LABEL_VERTS ? " sm" : ""),
       x:x.toFixed(1), y:y.toFixed(1), "text-anchor":"middle"}, DATA_.info[p.a][0]));
   });
 }
@@ -379,14 +414,14 @@ function selectProvince(ad){
 function drawSel(){
   while(gSel.firstChild) gSel.removeChild(gSel.firstChild);
   if(!state.sel) return;
-  gSel.appendChild(mk("path", {"class":"pvp", d:geomPath(PROV[state.sel].g, PM, 17.8, "keep"), "fill-rule":"evenodd"}));
+  gSel.appendChild(mk("path", {"class":"pvp", d:geomPath(PROV[state.sel].g, PM, MAIN_LAT_MIN, "keep"), "fill-rule":"evenodd"}));
 }
 function drawCities(){
   while(gCity.firstChild) gCity.removeChild(gCity.firstChild);
   if(!state.sel) return;
   var list = CITY[state.sel] || [];
   list.forEach(function(c){
-    var d = geomPath(c.g, PM, 17.8, "keep");
+    var d = geomPath(c.g, PM, MAIN_LAT_MIN, "keep");
     if(!d) return;
     var el = mk("path", {"class":"cty", d:d, "fill-rule":"evenodd"});
     el.addEventListener("mouseenter", function(e){
@@ -408,7 +443,7 @@ function renderAllCities(){
     for(pa in CITY){
       lst = CITY[pa];
       for(i = 0; i < lst.length; i++){
-        d = geomPath(lst[i].g, PM, 17.8, "keep");
+        d = geomPath(lst[i].g, PM, MAIN_LAT_MIN, "keep");
         if(d) frag.push(d);
       }
     }
@@ -441,7 +476,7 @@ function renderRegions(){
     var r = REGION[rid], rings = regionGeom(rid), d = "", i;
     for(i = 0; i < rings.length; i++){
       var poly = rings[i];
-      if(topLat(poly) < 17.8) continue;            /* 南海诸岛只在附图中体现 */
+      if(topLat(poly) < MAIN_LAT_MIN) continue;            /* 南海诸岛只在附图中体现 */
       for(var j = 0; j < poly.length; j++) d += ringPath(poly[j], PM) + " ";
     }
     if(!d) return;
@@ -514,7 +549,7 @@ function renderFeats(){
     if(k.indexOf("c:") !== 0) continue;
     var ca = k.slice(2), cc = CITY_BY_AD[ca];
     if(!cc) continue;
-    var d = geomPath(cc.g, PM, 17.8, "keep");
+    var d = geomPath(cc.g, PM, MAIN_LAT_MIN, "keep");
     if(d) gMark.appendChild(mk("path", {"class":"cty-h", d:d, "fill-rule":"evenodd"}));
     var qc = PM(cc.c[0], cc.c[1]);
     gMark.appendChild(txt("text", {"class":"mkt", x:qc[0].toFixed(1), y:(qc[1]+3).toFixed(1),
@@ -755,7 +790,19 @@ $("btnLabels").addEventListener("click", function(){
 });
 
 /* ---------- 启动 ---------- */
-drawLabels(); renderRegions(); renderFeats(); renderPanel(); resetView();
+/* 数据字段已在文件上方断言（不通过则提前 return）。
+   这里只兜住渲染阶段的意外异常：宁可给出可读提示，也不要白屏。 */
+try {
+  drawLabels(); renderRegions(); renderFeats(); renderPanel(); resetView();
+} catch(err){
+  if(window.console && console.error) console.error("[map] 初始化失败:", err);
+  var box = document.createElement("div");
+  box.style.cssText = "margin:16px 24px;padding:14px 18px;border:1px solid #f0dcae;" +
+    "background:#fff7e6;color:#8a5200;border-radius:10px;font-size:13.5px;line-height:1.8";
+  box.textContent = "地图初始化时出现异常，部分图层可能未正确渲染。可在控制台查看详细信息。";
+  document.body.insertBefore(box, document.body.firstChild);
+}
+})();
 })();
 </script>
 </body>

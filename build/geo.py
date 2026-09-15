@@ -208,7 +208,7 @@ RIVER_SPEC = {
     'weihe':      {'name': '渭河', 'match': ['Wei'], 'box': (103.4, 110.6, 33.7, 35.5)},
     'fenhe':      {'name': '汾河', 'match': ['Fen'], 'box': (110.2, 113.1, 35.1, 39.3)},
     'yuanjiang':  {'name': '元江（红河）', 'match': ['Hong'], 'box': (99.7, 104.0, 22.2, 25.7)},
-    'yalvjiang':  {'name': '鸭绿江', 'match': ['Yalu'], 'box': (124.1, 128.6, 39.8, 42.2)},
+    'yalujiang':  {'name': '鸭绿江', 'match': ['Yalu'], 'box': (124.1, 128.6, 39.8, 42.2)},
     'tumenjiang': {'name': '图们江', 'match': ['Tumen'], 'box': (127.9, 131.0, 41.7, 43.3)},
     'wusulijiang': {'name': '乌苏里江', 'match': ['Ussuri'], 'box': (132.9, 135.4, 43.3, 48.7)},
     'sangganhe':  {'name': '桑干河（永定河上游）', 'match': ['Sanggan'], 'box': (112.0, 116.0, 39.0, 40.6), 'minpts': 50},
@@ -225,8 +225,14 @@ RIVER_SPEC = {
 }
 
 raw = {}
-if os.path.exists(os.path.join(DATA, 'ne_rivers.geojson')):
-    ne = load(os.path.join(DATA, 'ne_rivers.geojson'))
+# 优先读裁剪版（fetch_rivers.py 产出，仅保留中国包围盒内相交的要素，
+# 6.97 MB → 1.19 MB，几何与原始文件完全一致）；未裁剪时回退读原始文件。
+_RIVER_FILES = ['ne_rivers_cn.geojson', 'ne_rivers.geojson']
+_river_path = next((os.path.join(DATA, f) for f in _RIVER_FILES
+                    if os.path.exists(os.path.join(DATA, f))), None)
+if _river_path:
+    ne = load(_river_path)
+    print('河流数据源: %s (%d 要素)' % (os.path.basename(_river_path), len(ne['features'])))
     for rid, spec in RIVER_SPEC.items():
         # merge_into：该名称的河道并入目标河流，作为其独立线段（如珠江的西江/北江/东江）
         tgt = spec.get('merge_into', rid)
@@ -273,10 +279,10 @@ MANUAL_DEG = {
     # 汉江白河—郧阳—丹江口段：NE 的 Han 主河道在此断开 1.5°（实测删除后汉江会裂为两段）
     'hanshui': [[[109.74, 32.94], [110.30, 32.85], [110.85, 32.70], [111.48, 32.57]]],
     # 鸭绿江丹东—宽甸段：NE 的 Yalu 主体与 124.96°E 以东的独立碎段之间缺口（实测删除后裂为两段）
-    'yalvjiang_gap': [[[124.37, 40.10], [124.72, 40.30], [124.96, 40.45]]],
+    'yalujiang_gap': [[[124.37, 40.10], [124.72, 40.30], [124.96, 40.45]]],
 }
 # 别名：手工段的键名与目标河流 id 不同者在此映射
-ALIAS = {'hanshui': 'hanjiang', 'yalvjiang_gap': 'yalvjiang'}
+ALIAS = {'hanshui': 'hanjiang', 'yalujiang_gap': 'yalujiang'}
 for _rid, _groups in MANUAL_DEG.items():
     _tgt = ALIAS.get(_rid, _rid)
     if _tgt not in RIVER_SPEC:

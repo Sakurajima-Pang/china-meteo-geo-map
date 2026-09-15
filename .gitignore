@@ -1,7 +1,12 @@
 # ---- 原始数据 ----
-# 合计 11.2 MB，其中 ne_rivers.geojson 单文件即 7.0 MB，直接入库会让仓库体积失控。
-# 改为以 archive/rawdata-*.zip（3.56 MB）的形式提供，克隆后解压即可复现构建，
-# 详见 archive/README.md。data/ 目录由 build/fetch_*.py 生成。
+# data/ 合计 13 MB：行政区划 JSON 33 个约 4.4 MB，Natural Earth 河道中心线
+# 7.3 MB。直接入库会让仓库体积失控，故整体忽略，改以
+# archive/rawdata-*.zip（3.6 MB）提供，克隆后解压即可复现构建，详见 archive/README.md。
+# 目录内容由 build/fetch_*.py 生成。
+#
+# 注：fetch_rivers.py 下载 NE 河道后会额外裁剪出 ne_rivers_cn.geojson（7.0 MB → 1.19 MB，
+# 只保留与中国包围盒相交的 238 个要素，几何逐点不变），geo.py 优先读该文件。
+# 该裁剪产物同样不入库 —— 归档 zip 已含原始文件，解压后重跑 build.py 会自动生成。
 data/
 
 # ---- 构建中间产物 ----
