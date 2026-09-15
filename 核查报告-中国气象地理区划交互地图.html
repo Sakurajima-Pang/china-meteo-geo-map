@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>项目核查报告 · 中国气象地理区划交互地图</title>
+<style>
+:root{
+  --bg:#f4f7fb; --panel:#fff; --line:#dbe5f1; --line2:#c3d4e8;
+  --ink:#16283e; --ink2:#4a6080; --ink3:#7d93ae;
+  --ok:#1f8a5b; --okbg:#eaf7f0; --okln:#bfe3d0;
+  --warn:#b06a00; --warnbg:#fff7e6; --warnln:#f0dcae;
+  --bad:#b52d2d; --badbg:#fdeded; --badln:#f3cccc;
+  --acc:#2f7fe0; --accbg:#eaf2fe; --accln:#cfe1fa;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:36px 26px 80px}
+header{border-bottom:2px solid var(--line2);padding-bottom:20px;margin-bottom:28px}
+h1{margin:0 0 6px;font-size:25px;letter-spacing:.3px}
+.sub{color:var(--ink2);font-size:13.5px}
+.meta{margin-top:12px;font-size:12.5px;color:var(--ink3);line-height:1.9}
+.meta code{font-family:var(--mono);background:#eef3fa;padding:1px 6px;border-radius:5px;color:var(--ink2)}
+h2{font-size:19px;margin:40px 0 14px;padding:10px 0 8px;border-bottom:1px solid var(--line2)}
+h3{font-size:15.5px;margin:26px 0 10px;color:#1d3b60}
+h4{font-size:14px;margin:18px 0 8px;color:var(--ink2)}
+p{margin:9px 0}
+ul,ol{margin:8px 0 8px 4px;padding-left:20px}
+li{margin:5px 0}
+code{font-family:var(--mono);font-size:12.5px;background:#eef3fa;padding:1px 5px;border-radius:4px;color:#2a4a70}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+th{background:#eef3fa;font-weight:700;color:#2a4a70;font-size:12.5px;letter-spacing:.3px}
+tr:nth-child(even) td{background:#fafcfe}
+.box{border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid}
+.box.ok{background:var(--okbg);border-color:var(--okln)}
+.box.warn{background:var(--warnbg);border-color:var(--warnln)}
+.box.bad{background:var(--badbg);border-color:var(--badln)}
+.box.info{background:var(--accbg);border-color:var(--accln)}
+.box b.t{display:block;margin-bottom:6px;font-size:14px}
+.box.ok b.t{color:#146b46}.box.warn b.t{color:#8a5200}
+.box.bad b.t{color:#932222}.box.info b.t{color:#1a5cab}
+.tag{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;margin-right:6px;
+  border:1px solid;vertical-align:1px}
+.tag.p0{background:#fdeaea;color:#a52424;border-color:#f0c4c4}
+.tag.p1{background:#fff3df;color:#8f5500;border-color:#f0d9ab}
+.tag.p2{background:#eef1f6;color:#4a6080;border-color:#d5dfeb}
+.tag.pass{background:#e6f6ee;color:#146b46;border-color:#bfe3d0}
+.tag.fail{background:#fdeaea;color:#a52424;border-color:#f0c4c4}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.kpi div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 14px}
+.kpi b{display:block;font-size:22px;font-family:var(--mono);color:#1a5cab;line-height:1.3}
+.kpi span{font-size:12px;color:var(--ink3)}
+hr{border:0;border-top:1px dashed var(--line2);margin:30px 0}
+.small{font-size:12.5px;color:var(--ink3)}
+footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-size:12.5px;color:var(--ink3);line-height:1.95}
+@media(max-width:820px){.kpi{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>项目核查报告 · 中国气象地理区划交互地图</h1>
+  <div class="sub">数据真实性核查 &nbsp;·&nbsp; 代码及技术方案评估</div>
+  <div class="meta">
+    核查对象：<code>中国气象地理区划交互地图.html</code>（857.6 KB）及 <code>build/</code>、<code>data/</code> 全部源文件<br>
+    核查日期：2026-09-15 &nbsp;|&nbsp; 核查方式：静态审计 + 构建产物逐字段比对 + 无头浏览器运行时验证 + 权威文献比对<br>
+    核查性质：<b>只读</b>（未修改任何项目文件；新增的核查脚本见文末）
+  </div>
+</header>
+
+<div class="kpi">
+  <div><b>34 / 34</b><span>省级行政区数据齐备</span></div>
+  <div><b>12 / 12</b><span>产物与源数据一致性比对通过</span></div>
+  <div><b>0</b><span>浏览器运行时错误</span></div>
+  <div><b>100 / 100</b><span>山脉注记落在自身范围内（修复后）</span></div>
+</div>
+
+<div class="box ok">
+  <b class="t">总体结论</b>
+  <b>数据没有编造，来源真实可溯，构建链完整，界面与数据高度一致。</b>
+  核心几何全部来自两个公开数据集（DataV.GeoAtlas 行政区划、Natural Earth 河道中心线），
+  区划依据经权威文献逐条比对属实，成品 HTML 内嵌数据与源数据在 12 个字段上完全相等。
+  发现的问题集中在三类：<b>① 页脚存在 1 处事实性错误；② 手工编写的注记/归属数据缺少自动校验，产生若干空间矛盾；③ 城市级区划划分与面板所述区划定义存在口径冲突。</b>
+  技术方案选型合理、工程完成度高，主要短板是构建链未工程化与手工数据无校验，均非架构性问题。
+</div>
+
+<div class="box info">
+  <b class="t">修复完成情况（2026-09-15 第二轮）</b>
+  <p style="margin:0 0 8px">本报告列出的问题已逐项修复，并新增 <code>build/build.py</code> 统一构建入口与三道<b>构建门禁</b>（失败即终止构建），防止同类问题复发。修复后全部校验通过：内嵌数据与中间产物 12 个字段全等、运行时零报错、<b>山脉注记 100/100 落在自身范围内</b>（原 10 项越界）、<b>省级要素归属 0 项异常</b>（原 2 项）。</p>
+  <table style="margin:6px 0 0">
+    <tr><th style="width:8%">问题</th><th style="width:46%">修复内容</th><th>状态</th></tr>
+    <tr><td>1</td><td>嘉陵江、乌江、岷江、瓯江、钱塘江改回 Natural Earth 真实河道（434 / 380 / 61 / 65 / 82 点）；海河改回 Hai + Yongding 真实河道；北江、东江改回 Bei / Dong 真实河道并入珠江系统；删除对应手工折线。嘉陵江上游段（32.4°N 以北约 190 km）已补齐。页脚名单据实重写</td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>2</td><td>删除 <code>FEAT['630000']</code> 中的 <code>r:nujiang</code></td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>3</td><td>长白山脉示意范围向西南延伸至 124.8°E，覆盖辽宁东部；主峰白云峰已含入</td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>4</td><td>10 座山脉的注记点全部校正（就近推入范围内并留 ≥0.08° 安全边距）；喜马拉雅山范围南缘南拉至 27.6°N，珠峰已含入</td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>5</td><td>山东：日照市由华北改归黄淮，与临沂同区，消除相邻同纬度市异属；并在页脚显式披露"城市级归属系推断性细化、与文字定义可能存在出入"。<b>福建一项经复核为原报告误判，已更正，不计入问题</b></td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>6</td><td>页脚补披露：台湾省无地级界线（DataV 返回 404）、中国澳门 3 个堂区无边界、小型名山范围约 3 倍放大、GCJ-02 与 WGS-84 混用；面板对"点位列"与"面单元"分别说明；澳门无边界堂区在面板中标为"无边界数据"并禁用勾选</td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>7</td><td>河名标注改为按<b>累积弧长中点</b>定位（原按数组下标取中点）；珠江、长江另在数据层给定锚点。珠江标注由贵州黔南（106.67°E, 25.17°N）移至珠江三角洲（113.35°E, 23.10°N）</td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>8</td><td>澳门空几何堂区已处理（见问题 6）；山脉放大已在面板说明中复述；坐标基准已在页脚声明</td><td><span class="tag pass">已修复</span></td></tr>
+    <tr><td>工程</td><td>新增 <code>build.py</code> 单入口 + 三道构建门禁；删除 geo.py 死代码；输出顺序改为确定性排序；不再原地变异模块级常量；点位查找改用预建索引；岛礁坐标移入数据层；省份支持键盘操作并补 aria 属性；抓取脚本恢复 TLS 校验；16 个调试/探查脚本归档至 <code>build/dev-scratch/</code></td><td><span class="tag pass">已完成</span></td></tr>
+  </table>
+</div>
+
+<h2>一、核查范围与方法</h2>
+<table>
+<tr><th style="width:26%">核查维度</th><th>具体方法</th></tr>
+<tr><td>数据来源可溯性</td><td>逐个解析 <code>data/</code> 原始文件，统计 feature 数量、level 分布、adcode 集合；对照页脚声明</td></tr>
+<tr><td>计算逻辑正确性</td><td>复算 Douglas-Peucker 简化、坐标整数化、碎段拼接、多边形面积过滤等环节的输出；检查区划成员索引是否完整无重复</td></tr>
+<tr><td>界面与数据一致性</td><td>从成品 HTML 中正则提取内嵌 <code>DATA</code>，与 <code>build/out/geo.json</code>、<code>data.json</code> 做<b>逐字段全等比对</b>；再用无头 Chrome 渲染，统计实际生成的 DOM 元素并采集控制台错误</td></tr>
+<tr><td>内容真实性</td><td>将 11 个一级区划的名称与范围文字，与中国天气网/气象科普渠道转载的《中国气象地理区划手册》原文逐条比对；将 2021 年规范相关表述与中国气象局官网（cma.gov.cn）报道比对</td></tr>
+<tr><td>空间数据自洽性</td><td>编写射线法点在多边形内判定 + 点到多边形距离计算，逐条验证「山脉注记点 ↔ 山脉示意范围」「省级要素清单 ↔ 该省实际范围」的空间关系</td></tr>
+<tr><td>河流数据可信度</td><td>回查 Natural Earth 原始文件 1455 个要素的名称集合，验证页脚关于「哪些河流缺失、哪些是断开段」的说法</td></tr>
+</table>
+
+<h2>二、第一部分 · 数据真实性核查</h2>
+
+<h3>2.1 数据来源真实可溯 <span class="tag pass">通过</span></h3>
+<table>
+<tr><th style="width:22%">数据层</th><th style="width:30%">来源</th><th>核查结果</th></tr>
+<tr>
+  <td>行政区划底图</td>
+  <td>DataV.GeoAtlas <code>areas_v3/bound</code><br><span class="small">（源自高德开放平台，GCJ-02）</span></td>
+  <td><code>100000_full.json</code> 共 35 个要素 = <b>34 个省级单位 + 1 个 <code>100000_JD</code>（南海诸岛界线）</b>。
+      省级 adcode 完整集合（34 个）：110000、120000、130000、140000、150000、210000、220000、230000、310000、320000、330000、340000、350000、360000、370000、410000、420000、430000、440000、450000、460000、500000、510000、520000、530000、540000、610000、620000、630000、640000、650000、710000、810000、820000 —— 与页脚「覆盖 34 个省级行政区」<b>一致</b>。另有 <b>33 个</b>省级下辖文件（<b>台湾省缺失</b>，详见问题 6），共 475 个地级/区级单元。</td>
+</tr>
+<tr>
+  <td>河流</td>
+  <td>Natural Earth<br><code>ne_10m_rivers_lake_centerlines</code></td>
+  <td>原始文件 1455 个要素，为公共领域数据。按 <code>RIVER_SPEC</code> 的名称精确匹配 + 经纬度包围盒裁剪，取到 23 条河；另加 6 条人工补充，成品共 29 条。<b>来源真实</b>（详见 2.4 问题 1 关于补充必要性的争议）。</td>
+</tr>
+<tr>
+  <td>区划依据</td>
+  <td>《中国气象地理区划手册》<br>中国气象局 2021《气象地理区划规范》</td>
+  <td><b>11 个一级区划的名称与范围文字，与《手册》原文逐字一致</b>（西北/华北/内蒙古/东北/黄淮/江淮/江南/江汉/华南/西南/西藏，共 11 条全部核对无误）。<br>2021 年规范相关表述亦属实：中国气象局 2021-12-31 印发《气象地理区划规范》《国家级气象服务产品地理用语业务规定》，一级地区区划 10 个、特定区域区划 11 个（含黄淮、江淮、江南、江汉）—— 页脚第 2 条表述<b>准确</b>。</td>
+</tr>
+<tr>
+  <td>山系范围多边形</td>
+  <td><code>build/mtn_shapes.py</code> 手工编写</td>
+  <td>100 个多边形，非来自任何权威数据集。<b>页脚已明确声明</b>「山系不存在法定界线，本图按真实走向与已知分布范围绘制为示意范围多边形」—— 声明属实且诚实。抽查走向：大兴安岭 NNE-SSW、太行山 NE-SW、天山/昆仑山/秦岭 E-W、横断山 N-S、贺兰山 N-S 均<b>正确</b>。</td>
+</tr>
+</table>
+
+<h3>2.2 构建产物与界面展示完全一致 <span class="tag pass">通过</span></h3>
+<p>这是本次核查中最关键的一致性验证。从成品 HTML 中提取运行时实际使用的内嵌数据对象，与中间产物逐字段比对：</p>
+<table>
+<tr><th style="width:34%">比对项</th><th style="width:14%">结果</th><th>说明</th></tr>
+<tr><td><code>p</code> 省级几何（34 项）</td><td><span class="tag pass">一致</span></td><td rowspan="10">内嵌 <code>DATA</code> 与 <code>build/out/geo.json</code> + <code>build/out/data.json</code> 在 10 个字段上<b>全等</b>（非近似、非抽样，为深层相等判定）。当前产物与源数据处于同步状态。</td></tr>
+<tr><td><code>ci</code> 475 个地级单元几何</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>rv</code> 29 条河流</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>mt</code> 100 座山脉（含范围多边形）</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>lk</code> 17 个湖泊注记</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>rg</code> 11 个一级区划及成员</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>pr</code> 省级 → 区划映射</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>feat</code> 省级要素清单</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>info</code> 简称/省会</td><td><span class="tag pass">一致</span></td></tr>
+<tr><td><code>ec</code> 台湾补充点位</td><td><span class="tag pass">一致</span></td></tr>
+</table>
+
+<h4>运行时与逻辑完整性验证</h4>
+<ul>
+  <li><span class="tag pass">通过</span>无头 Chrome 加载成品页面，<b>控制台错误 0 条、页面异常 0 条</b>。</li>
+  <li><span class="tag pass">通过</span>实际渲染出 34 条省级路径（全部含非空 <code>d</code>）、34 个省级名称标签、10 段南海诸岛界线、6 个岛礁符号、44 条附图路径。</li>
+  <li><span class="tag pass">通过</span>面板统计数字（34 省级行政区 / 11 一级区划 / 100 山脉注记）<b>由数据实时计算</b>，与数据实际长度一致，不存在硬编码谎报。</li>
+  <li><span class="tag pass">通过</span>前端渲染依赖的字段无缺失：<code>info</code>、<code>pr</code>、<code>feat</code> 对 34 省全覆盖；<code>regionGeom</code> 无法解析的区划成员引用 <b>0 项</b>；无索引越界。</li>
+  <li><span class="tag pass">通过</span><b>区划聚合完整性</b>：6 个跨区省（江苏 13、安徽 16、山东 16、河南 18、湖北 17、福建 9，合计 89 个地级单元）<b>全部被完整、无重复、无遗漏地划入</b>；34 省全部归入至少 1 个一级区划。</li>
+  <li><span class="tag pass">通过</span>要素引用完整性：<code>feat</code> 中引用的山/河/湖 id 全部存在，<b>0 项悬空引用</b>；100 座山脉全部具备范围多边形（顶点数 4–14）；全部注记坐标落在中国国界范围内。</li>
+  <li><span class="tag pass">通过</span>离线自包含：<b>零外部资源引用</b>（已扫描全部 <code>src</code>/<code>href</code>），可在断网环境直接打开。857.6 KB 中 96% 为内嵌几何数据。</li>
+</ul>
+
+<h3>2.3 发现的问题</h3>
+
+<div class="box bad">
+  <b class="t"><span class="tag p0">P0 事实性错误</span>问题 1 &nbsp;页脚"整条缺失的河流"名单不实，并导致河流数据质量倒退</b>
+  <p>页脚第 3 条称「整条缺失的河流（嘉陵江、岷江、乌江、钱塘江、瓯江、南渡江）」。回查 Natural Earth 原始文件后确认：<b>其中 3 条在 NE 数据中本就存在</b>。</p>
+  <table>
+    <tr><th>河名</th><th>NE 中的要素</th><th>点数</th><th>实际范围</th><th>页脚说法</th></tr>
+    <tr><td>嘉陵江</td><td><code>name='Jialing'</code>, featurecla=River</td><td><b>434</b></td><td>105.69–106.88°E, 29.57–34.21°N</td><td><span class="tag fail">不实</span>完整存在</td></tr>
+    <tr><td>乌江</td><td><code>name='Wu'</code>, featurecla=River（3 段）</td><td><b>380</b></td><td>104.59–108.51°E, 26.34–29.73°N</td><td><span class="tag fail">不实</span>完整存在</td></tr>
+    <tr><td>岷江</td><td><code>name='Min'</code>, featurecla=River</td><td>61</td><td>103.72–104.60°E, 28.78–29.56°N</td><td><span class="tag fail">不实</span>下游段存在</td></tr>
+    <tr><td>钱塘江 / 瓯江 / 南渡江</td><td>无对应要素</td><td>—</td><td>—</td><td><span class="tag pass">属实</span>确属缺失</td></tr>
+  </table>
+  <p><b>双重后果：</b></p>
+  <ol>
+    <li><b>陈述与事实不符</b>：页脚明确断言这三条河"整条缺失"，实测并非如此。</li>
+    <li><b>数据质量倒退（更严重）</b>：<code>geo.py</code> 的 <code>RIVER_SPEC</code> 未登记这三条河，<code>content.py</code> 的 <code>EXTRA_RIVERS</code> 又另行手工造线，于是<b>真实的 434 点/380 点河道被 5 点折线取代</b>。手工嘉陵江线覆盖 105.80–106.55°E、29.56–32.40°N，<b>缺失了 32.4°N 以北约 190 km 的上游段</b>（陕西/甘肃段）。</li>
+    <li><b>本可自动拼接</b>：乌江的 3 段 NE 河道端点完全重合（106.73°E, 27.32°N），<code>stitch()</code> 函数只要拿到数据就能自动拼成完整乌江。</li>
+  </ol>
+  <p class="small">推测成因：<code>fetch_rivers.py</code> 的探查输出只打印了按出现频次排序的前 60 个名称，作者据该清单判断"缺失"，未逐一核对完整名称集合。</p>
+</div>
+
+<div class="box bad">
+  <b class="t"><span class="tag p0">P0 归属错误</span>问题 2 &nbsp;青海省列出了不流经本省的河流（怒江）</b>
+  <p><code>content.py</code> 中 <code>FEAT['630000']</code> 含 <code>'r:nujiang'</code>。怒江（萨尔温江上游）发源于西藏那曲境内唐古拉山南麓，流经西藏、云南后出境，<b>不流经青海</b>。</p>
+  <p><b>可验证证据</b>：本图怒江河道范围为 91.8–99.1°E / 23.9–31.6°N，与青海省包围盒<b>零交叠</b>（自动相交检测已判定）。青海境内另有长江、黄河、澜沧江源，这三条均已正确列入。</p>
+</div>
+
+<div class="box warn">
+  <b class="t"><span class="tag p1">P1 归属可疑</span>问题 3 &nbsp;辽宁省列出"长白山"，但示意范围不覆盖辽宁</b>
+  <p><code>FEAT['210000']</code> 含 <code>'changbaishan'</code>，而 <code>mtn_shapes.py</code> 绘制的长白山范围最西仅到 <b>126.4°E</b>，辽宁最东约 125.8°E，二者<b>零交叠</b>——勾选"长白山"时，该省视图中看不到任何范围图形。同省已另有"千山"代表辽东山地。</p>
+</div>
+
+<div class="box warn">
+  <b class="t"><span class="tag p1">P1 几何与注记不一致</span>问题 4 &nbsp;100 座山脉中 10 座的注记点落在自身示意范围之外</b>
+  <table>
+    <tr><th>山脉</th><th>中心注记坐标</th><th>偏离自身范围</th><th>备注</th></tr>
+    <tr><td>长白山</td><td>128.06°E, 42.00°N</td><td><b>34 km</b></td><td>主峰白云峰（128.056°E, 42.006°N）即在范围外</td></tr>
+    <tr><td>大娄山</td><td>107.00°E, 27.50°N</td><td><b>32 km</b></td><td></td></tr>
+    <tr><td>喜马拉雅山</td><td>86.50°E, 28.50°N</td><td><b>28 km</b></td><td>范围为 28.00–30.80°N，<b>珠穆朗玛峰（27.99°N）距该范围边界 69 km</b></td></tr>
+    <tr><td>阿尔金山</td><td>91.50°E, 38.30°N</td><td>21 km</td><td></td></tr>
+    <tr><td>祁连山</td><td>99.00°E, 38.50°N</td><td>21 km</td><td></td></tr>
+    <tr><td>冈底斯山 / 念青唐古拉山 / 小兴安岭 / 大巴山 / 中央山脉</td><td>—</td><td>3–15 km</td><td></td></tr>
+  </table>
+  <p><b>可见后果</b>：山脉名称标注会悬在色块边界之外。<b>根因</b>：<code>content.py</code> 的 <code>MT</code> 坐标表与 <code>mtn_shapes.py</code> 的 <code>SHAPES</code> 多边形表各自独立手工编写，两者之间<b>没有任何交叉校验</b>——现有断言只检查"键名一一对应"和"顶点数 ≥ 3"，不检查空间关系。</p>
+</div>
+
+<div class="box warn">
+  <b class="t"><span class="tag p1">P1 口径矛盾</span>问题 5 &nbsp;城市级区划划分与面板所述区划定义冲突</b>
+  <p>面板在每省区划条目下<b>直接展示该区的官方文字定义</b>，但实际聚合范围与之相悖：</p>
+
+  <h4>山东（已修复）</h4>
+  <p>面板显示「华北地区 = 山西、河北二省，北京、天津二市和河南、山东两省<b>黄河以北</b>地区」。项目自身记录显示，山东"一省分属华北南部与黄淮北部"这一<b>拆分本身有文献依据</b>（齐鲁晚报引《手册》原文）。<b>争议不在"要不要拆"，而在"切在哪里"</b>——原切分结果与"黄河以北"这条界线不符：</p>
+  <ul>
+    <li><b>泰安</b>（117.13°E, 36.20°N）—— 泰安全境在黄河以南（黄河在济南段约 36.75°N），却归华北。</li>
+    <li><b>淄博</b>（118.05°E, 36.81°N）—— 黄河在该经度约 37.40°N，淄博城区在黄河以南。</li>
+    <li><b>青岛</b>（36.08°N）、<b>潍坊</b>（36.71°N）、<b>日照</b>（35.43°N）、<b>烟台</b>、<b>威海</b> —— 黄河并不流经这些市。</li>
+    <li><b>最直白的内部矛盾</b>：<b>日照（119.46°E, 35.43°N）归华北，临沂（118.33°E, 35.06°N）归黄淮</b> —— 两市相邻、同属鲁东南、纬度仅差 0.37°，却被划入不同一级区划。</li>
+  </ul>
+  <p><b>修复</b>：日照市已由华北改归黄淮，与临沂同区；山东由此形成一条清晰的南北分界（华北 11 市最南为青岛 36.08°N，黄淮 5 市最北为日照 35.43°N，无跨越）。同时页脚显式披露城市级切分属推断性细化。</p>
+
+  <h4>福建 <span class="tag" style="background:#eef1f6;color:#4a6080;border-color:#d5dfeb">原判断有误，此处更正</span></h4>
+  <p><b>更正说明：本报告初版把此项列为"方位矛盾"，复核后确认判断有误。</b>三明（26.27°N）的纬度<b>高于</b>福州（26.07°N），因此"三明归江南（福建北部）、福州归华南（福建南部）"在纬度上<b>是自洽的</b>，并非矛盾。江南一侧最南为三明 26.27°N，华南一侧最北为福州 26.07°N，两侧不重叠、无跨越。此项撤回，不计入问题。</p>
+
+  <h4>湖北（次要）</h4>
+  <p>面板显示「江汉 = 江淮、黄淮<b>以西</b>的河南、湖北其余地区」。实际：<b>武汉（114.30°E）位于孝感（113.93°E）以东</b>，孝感归江淮、武汉归江汉，与"以西"表述不符。</p>
+
+  <div class="box info" style="margin:12px 0 0">
+    <b class="t">关于这一问题的定性</b>
+    <p style="margin:0">地级市级别的气象地理区划归属，<b>在公开文献中不存在权威到市级版本的依据</b>——《手册》只给出到省级/自然地理线级别的文字描述（如"山东…黄河以北地区"）。因此上述划分本质上属<b>作者依据自然地理线的推断性细化</b>：拆分的方向（哪个省要拆、拆成哪几个区）有文献支撑，<b>但具体的切分位置是推断</b>。页脚第 4 条已声明"按地级市整体聚合绘制，属近似范围"，<b>但声明的是"近似"，而非"可能与面板文字定义相悖"</b>；且该声明只在页脚出现，<b>面板内未重复</b>，用户看面板时会直接读到定义文字与归属结果并置，容易形成错误印象。</p>
+  </div>
+</div>
+
+<div class="box warn">
+  <b class="t"><span class="tag p1">P1 未披露的数据缺口</span>问题 6 &nbsp;台湾省无地级界线，页脚未披露</b>
+  <p>实测两个 URL 模板对台湾省地级数据<b>均返回 HTTP 404</b>：
+    <code>geo.datav.aliyun.com/areas_v3/bound/710000_full.json</code> 与
+    <code>…/bound/geojson?code=710000_full</code>。
+    作为对照，810000（中国香港）、820000（中国澳门）、110000 均正常返回。
+    → <b>DataV 确实不提供台湾省地级数据，属上游数据源的真实缺口，非下载失误。</b></p>
+  <p>项目以 <code>EXTRA_CITIES</code> 的 18 个县市<b>点位</b>兜底，这是合理的补救。但存在两处表述问题：</p>
+  <ul>
+    <li>页脚第 1 条称「<b>省、地两级界线</b>…<b>覆盖 34 个省级行政区</b>」—— 实际台湾省<b>缺地级界线</b>，该陈述不准确。</li>
+    <li>面板"主要城市 / 下辖行政区"的说明写「勾选后在地图上<b>高亮该单元的行政区域范围</b>」，而台湾的 18 个点位<b>只有圆点、没有范围</b>。行为与说明不符。</li>
+  </ul>
+</div>
+
+<div class="box warn">
+  <b class="t"><span class="tag p1">P1 标注落点错误</span>问题 7 &nbsp;"珠江"名称被绘制在贵州省境内</b>
+  <p>模板用「最长河段在<b>数组中的位置中点</b>」决定河名落点（<code>mi = Math.floor(len/4)*2</code>），对多段河流会失效。珠江被分为 3 段，最长段 90 个点、跨 103.04–114.70°E，其中点落在 <b>106.67°E, 25.17°N —— 贵州黔南一带</b>。</p>
+  <p><b>目视确认</b>：项目自带的截图 <code>build/shots/shot-14-zhujiang.png</code>（作者本人所摄）中，"珠江"二字明显压在贵州省境内。同类隐患：长江标注落在 103.85°E / 28.67°N（云南昭通金沙江段）。</p>
+</div>
+
+<div class="box info">
+  <b class="t"><span class="tag p2">P2 轻微</span>问题 8 &nbsp;其他不一致与未披露事项</b>
+  <ul style="margin-bottom:0">
+    <li><b>澳门 3 个堂区无几何</b>：花王堂区、望德堂区、风顺堂区在 <code>geo.json</code> 中几何为空数组，但面板仍作为可勾选项列出（显示"下辖单元 8"，实际只有 5 个可绘制）；勾选后仅出现一个点名、无范围填充，图例却计为"城市 1"。</li>
+    <li><b>名山范围放大约 3 倍</b>：如泰山多边形为 116.6–117.7°E / 35.9–36.6°N（约 100 km 宽），而泰山山体实际约 30 km 宽。页脚写了"作了适度放大"，但<b>面板说明只讲"可直观看出延展方向"，未复述放大事实</b>。</li>
+    <li><b>坐标基准不统一</b>：行政区划为 GCJ-02（页脚已注明），河道中心线为 WGS-84，页脚未注明。在本图比例下（约 21.3 px/经度）约 0.005° ≈ <b>0.11 px</b>，肉眼不可见，但属基准不一致，严格来说应统一或声明。</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>三、第二部分 · 代码及方案评估</h2>
+
+<h3>3.1 技术方案可行性评估 <span class="tag pass">优良</span></h3>
+<table>
+<tr><th style="width:24%">维度</th><th>评价</th></tr>
+<tr>
+  <td>产物形态</td>
+  <td><b>合理且契合定位。</b>单文件 857.6 KB、零外部依赖，可离线分发、双击即用，非常适合"教学与演示"场景。代价是 96% 体积为几何数据，无法被浏览器增量缓存（若改为在线服务，应外置数据并启用 gzip/br）。</td>
+</tr>
+<tr>
+  <td>几何压缩管线</td>
+  <td><b>设计良好。</b>Douglas-Peucker 简化（省 0.008°、市 0.018° 分级容差）+ 坐标放大 1000 倍取整编码 + 扁平数组存点 + 输出侧 <code>toFixed(1)</code>，把 34 省 + 475 市 + 29 条河压进 803 KB。<br>实现细节到位：DP 采用<b>迭代栈</b>而非递归（避免复杂海岸线爆栈）、<code>ring_area</code> 面积过滤剔除碎岛、整数化时做极点去重、内环（湖泊/飞地）保留并以 <code>fill-rule:evenodd</code> 正确处理。</td>
+</tr>
+<tr>
+  <td>投影与坐标</td>
+  <td><b>自洽。</b>Mercator + <code>makeProj(bbox, vw, vh, pad)</code> 按视图自适应缩放并居中，主图与南海诸岛附图复用同一函数，参数化良好。附图 clipPath 使用局部坐标系的处理正确（已用数值验证：九段线最北段 24.59°N 虽超出附图纬度上限 24.5°N，但投影留白使实际 y=4.86 &gt; 裁剪边界 2.5，<b>未被裁掉，南海诸岛界线完整</b>）。</td>
+</tr>
+<tr>
+  <td>渲染分层</td>
+  <td><b>清晰。</b>10 个 <code>&lt;g&gt;</code> 图层 z-order 明确（底图 → 全国市界 → 选中省 → 省下辖市 → 河流 → 要素 → 区划 → 区划名 → 省名 → 附图），并用 <code>pointer-events</code> 精确控制命中区域，避免装饰元素误拦截鼠标事件。</td>
+</tr>
+<tr>
+  <td>交互实现</td>
+  <td><b>完整且考虑细致。</b>滚轮缩放以指针为锚点；拖拽平移用 <code>dragMoved</code> + 3px 阈值抑制"拖拽后误触点击"；双击复位；<code>drawLabels</code> 实现了省名对区划名的自动避让（全选 11 个区划时，34 个省名自动让位 9 个）；图例随选中态实时生成。</td>
+</tr>
+<tr>
+  <td>数据组织</td>
+  <td><b>结构合理。</b>用 <code>{p: 省代码, all: 1}</code> / <code>{p: 省代码, ci: [城市索引]}</code> 引用而非复制几何，避免重复存储；区划列表与区划描述集中在 <code>content.py</code> 一处，便于维护。</td>
+</tr>
+</table>
+
+<h3>3.2 架构缺陷</h3>
+<table>
+<tr><th style="width:5%">#</th><th style="width:30%">问题</th><th style="width:30%">影响</th><th>建议</th></tr>
+<tr>
+  <td>1</td>
+  <td><b>无统一构建入口。</b>链路为 <code>fetch_*.py → geo.py → content.py → assemble.py</code>，需人工按序执行；<code>content.py</code> 读取 <code>out/geo.json</code> 但<b>不会触发</b> <code>geo.py</code>。</td>
+  <td>改动上游后忘记重跑下游，产物与源数据静默失步，且无任何提示。这是当前最大的工程风险。</td>
+  <td>增加 <code>build.py</code>（或 Makefile），按依赖顺序编排；每步产出写入时间戳/内容哈希，下一步开始时断言上游未变更。</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><b>手工数据完全无空间校验。</b><code>MT</code> 坐标、<code>SHAPES</code> 多边形、<code>FEAT</code> 归属、<code>EXTRA_RIVERS</code> 走向均为手写；现有断言只覆盖"键名一一对应 / 顶点数 ≥ 3 / 城市名匹配"。</td>
+  <td>本次 8 个问题中的 1、2、3、4、7 <b>全部源于此</b>。且改动一处可能悄悄劣化另一处——例如把某山脉的键名改对，但范围多边形仍不覆盖该山。</td>
+  <td>把本次核查所用的断言内置到 <code>content.py</code> 末尾，构建失败即报错：<br>① 每座山脉的 <b>中心点必须落在其自身范围多边形内</b>；<br>② 每个 <code>FEAT</code> 要素的几何必须与该省包围盒相交；<br>③ <code>RIVER_SPEC</code> 须覆盖 NE 中所有中国境内 River 要素，未覆盖者进显式白名单（白名单本身即成为待办清单）。</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><b>页脚声明与代码脱节。</b>页脚是硬编码 HTML 文本，与 <code>RIVER_SPEC</code>/<code>EXTRA_RIVERS</code> 的实际取舍没有任何关联。</td>
+  <td>直接导致问题 1 的"整条缺失"事实错误——改代码不会改文案。</td>
+  <td>把"数据源覆盖情况"由脚本生成（计算 <code>RIVER_SPEC</code> 名称集合与 NE 中国河流名称集合的差集），以占位符注入模板。</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><b>常量分散、存在魔法数。</b><code>VW/VH/MAIN_BB/INSET_BB/SC</code> 分布在 <code>template.html</code> 与 <code>geo.py</code>；<code>17.8</code>（南海诸岛主图过滤纬度）等阈值硬编码出现 5 次。</td>
+  <td>调整视口需两处同步修改，易漏。</td>
+  <td>抽出单点配置对象，由 <code>assemble.py</code> 注入。</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>regionRings</code> 缓存无失效机制；<code>state.feats</code> 无上限。</td>
+  <td>当前交互路径下无实际缺陷（数据不可变），但扩展时会成为隐患。</td>
+  <td>加显式失效接口，或以注释申明其为不可变缓存契约。</td>
+</tr>
+</table>
+
+<h3>3.3 代码级问题</h3>
+<table>
+<tr><th style="width:5%">#</th><th style="width:34%">位置与问题</th><th>说明与建议</th></tr>
+<tr><td>1</td><td><code>geo.py:196-197</code> 死代码</td><td><code>if 'minpts' in spec: pass</code> —— 空分支，紧接着 196 行之后才是真正的 <code>if len(ln) &lt; (spec.get('minpts') or 0): continue</code>。直接删除。</td></tr>
+<tr><td>2</td><td><code>content.py:131-135</code> 原地变异模块级常量</td><td><code>for _k,_v in MT.items(): _v.append(...)</code> 把 <code>MT</code> 的值由 3 元列表改写为 4 元列表。<b>单次运行无害，但同进程内重复执行会累积追加</b>（在交互式 Python / notebook 中会产出脏数据），且使模块级常量的语义在导入后被悄然改变。建议构造新 dict 而非改写原表。</td></tr>
+<tr><td>3</td><td><code>geo.py:305</code> 输出顺序不确定</td><td><code>order = list(RIVER_SPEC.keys()) + [k for k in raw if k not in RIVER_SPEC]</code> 的第二部分依赖 <code>raw</code> 的插入序，而 <code>raw</code> 中由 <code>ALIAS</code> 映射产生的键顺序不稳定 → <b>同一份输入可能产出字节不同的 <code>geo.json</code></b>，破坏可复现性与差分比对。建议显式排序。</td></tr>
+<tr><td>4</td><td><code>geo.py:234</code> 键名拼写不规范</td><td>河 id <code>yalvjiang</code>（鸭绿江）拼写有误（"鸭绿"拼音应为 <code>yalu</code>）。因前后一致、功能无碍，属命名瑕疵，但会降低可读性。</td></tr>
+<tr><td>5</td><td><code>template.html:489</code> 二次遍历查找点位</td><td><code>for(var ap in EC){ ... for(var t=0;...){ if(arr[t][0]===id) ... } }</code> 为 O(n·m) 且以<b>名称</b>为主键（同名点位会冲突）。当前仅台湾 18 项，性能无感，但应按名称预建索引。</td></tr>
+<tr><td>6</td><td><code>template.html:295</code> 岛礁坐标硬编码在 JS</td><td>南海诸岛 6 个岛礁符号（西沙、中沙、东沙、南沙、黄岩岛、曾母暗沙）的经纬度直接写死在渲染逻辑中，<b>违背本项目"数据驱动"的整体原则</b>，应移入数据层。</td></tr>
+<tr><td>7</td><td><code>template.html:463</code> 阈值语义复用</td><td>城市面高亮沿用了省份的 <code>17.8°N</code> 过滤阈值，属跨层复用；应参数化或显式声明意图。</td></tr>
+<tr><td>8</td><td><code>template.html:317</code> 经验性 hack</td><td>以 <code>p.g.length &gt; 10</code>（几何数组长度）代理"省域是否复杂（岛屿多）"来切换小字号，属隐式约定，应改为显式字段或至少加注释。</td></tr>
+<tr><td>9</td><td><code>fetch_cities.py:6-8</code> 关闭 TLS 校验</td><td><code>check_hostname=False; verify_mode=CERT_NONE</code>。抓取公开数据风险有限，但属不良实践。另外 <code>TMPL[i % len(TMPL)]</code> 的重试会在两个 URL 间轮换，失败时难以定位到底哪个模板有问题。</td></tr>
+<tr><td>10</td><td>健壮性与可访问性</td><td><code>DATA_</code> 若损坏或字段缺失，<code>drawLabels</code>、<code>provTip</code> 等处会直接抛错且<b>无降级路径</b>；<code>&lt;svg&gt;</code> 缺少 <code>aria-describedby</code>；省份<strong>只能鼠标点击</strong>，键盘无法操作（无 <code>tabindex</code> / 键盘事件），不满足无障碍基本要求。</td></tr>
+<tr><td>11</td><td>工程卫生</td><td><code>build/</code> 遗留 <b>11 个调试文件</b>（<code>dbg.js</code>、<code>dbg2.js</code>、<code>dbg3.js</code>、<code>test_page.js</code>、<code>test_page2.js</code>、<code>test_page3.js</code>、<code>test_mtn.js</code>、<code>test_mtn2.js</code>、<code>test_river.js</code>、<code>final_shot.js</code>、<code>inspect.py</code>），约 500 行。<code>data/</code> 共 11.2 MB，其中 <code>ne_rivers.geojson</code> 占 7.1 MB 但仅用到极少数要素，建议裁剪或加入忽略规则。</td></tr>
+</table>
+
+<h3>3.4 优化建议（按性价比排序）</h3>
+
+<h4>P0 · 正确性（建议优先处理）</h4>
+<ol>
+  <li><b>修正页脚"整条缺失的河流"名单</b>，并把嘉陵江、乌江（及岷江下游段）登记进 <code>RIVER_SPEC</code>，改用 NE 的真实 434 / 380 点河道（按 0.03° 容差做 DP 简化即可），同时删除 <code>EXTRA_RIVERS</code> 中对应条目。钱塘江、瓯江、南渡江保留手工线。<br><span class="small">预计效果：三条河的几何真实度提升约 80 倍（5 点 → 数百点），并补齐嘉陵江上游 190 km 缺口。</span></li>
+  <li><b>删除 <code>FEAT['630000']</code> 中的 <code>'r:nujiang'</code></b>；复核 <code>FEAT['210000']</code> 中的 <code>'changbaishan'</code> —— 要么移除，要么把长白山范围西延至 125.5°E 以覆盖辽东山地。</li>
+  <li><b>校正 10 座山脉的注记点或范围多边形</b>，使注记点落在自身范围内；其中喜马拉雅山范围（28.00–30.80°N）与珠峰（27.99°N，距边界 69 km）的关系，以及长白山范围与白云峰（距边界 34 km）的关系需重点确认。<br><span class="small">做法建议：在 <code>content.py</code> 中加入"注记点必须在自身多边形内"的断言，然后按报错逐条修正——这正是把验收标准变成自动化测试的典型场景。</span></li>
+  <li><b>修复河名标注落点。</b>改为在数据层为每条河提供一个 <code>labelPos</code> 锚点（推荐），或退而求其次改用几何中点。同时明确珠江 3 段应合并为干流、还是保留为干流 + 支流并各自标注——目前 3 段中有一段（108.9–110.1°E）是悬空的广西郁江片段。</li>
+</ol>
+
+<h4>P1 · 一致性</h4>
+<ol start="5">
+  <li><b>山东 / 福建 / 湖北的城市级划分，二选一：</b><br>
+      ① <b>按面板文字定义重划</b> —— 山东严格以黄河为界（山东黄河流经菏泽、聊城、济南、滨州、东营等，可据此定界），福建以明确的山脉或纬线定界；<br>
+      ② <b>保留现划但显式说明依据</b> —— 为每个跨区市在面板中加一行"划分依据"，并把页脚第 4 条的措辞由"属近似范围"改为"<b>城市级划分为本项目推断，与官方文字定义可能存在出入</b>"。<br>
+      <b>无论选哪种，至少必须消除</b>日照/临沂、福州/三明这两类"同纬度相邻市异属"的显性矛盾——它们会被任何懂行的读者一眼看出。</li>
+  <li><b>页脚补披露三项事实</b>：① 台湾省无地级界线（DataV 返回 404），18 个县市为点位补充；② 中国澳门 3 个堂区无几何数据；③ 小型名山的示意范围做了约 3 倍线性放大。</li>
+  <li><b>面板"主要城市 / 下辖行政区"说明区分两种行为</b>：有几何的单元"高亮行政区域范围"，纯点位单元"标注位置"。</li>
+  <li><b>统一或声明坐标基准</b>（GCJ-02 / WGS-84 混用）。</li>
+</ol>
+
+<h4>P2 · 工程化</h4>
+<ol start="9">
+  <li>增加 <code>build.py</code> 单入口，编排依赖顺序并做产物一致性断言。</li>
+  <li>把本次核查的 4 类空间/引用断言内置到构建流程，<b>构建失败即报错</b>。</li>
+  <li>页脚"数据源覆盖情况"改为脚本生成，杜绝文案与代码脱节。</li>
+  <li>清理 11 个调试文件；修复死代码、原地变异、输出顺序不确定、O(n·m) 查找、硬编码岛礁坐标；<code>fetch_cities.py</code> 恢复 TLS 校验。</li>
+  <li>无障碍：省份支持键盘操作、补充 <code>aria-</code> 属性、数据异常时降级提示而非白屏。</li>
+  <li>若未来需要在线部署，将几何数据外置为独立 JSON 并启用 gzip/br —— 当前 857 KB 中 822 KB 是数据，压缩后预计可降至 250 KB 量级。</li>
+</ol>
+
+<hr>
+
+<h2>四、值得肯定的方面</h2>
+<ul>
+  <li><b>披露意识罕见地诚实。</b>页脚 5 条说明主动声明了"按地级市聚合属近似范围""山脉为示意多边形""湖泊为示意注记""名山作了适度放大""支流保留为独立线段""本页面为教学演示用途，不作为权威地图或气象业务依据"。在同类可视化作品中，这种程度的自我披露是少见的。<b>问题 1 的"整条缺失"是这份诚实清单里唯一的失实项</b>，其余声明经核查基本属实。</li>
+  <li><b>数据没有造数。</b>全部几何可溯源到两个真实公开数据集，构建链完整可复现，产物与源 100% 同步。没有发现任何凭空的坐标、虚构的统计或伪造的来源。</li>
+  <li><b>压缩与渲染管线的工程质量高。</b>迭代式 DP、分级容差、极点去重、内环处理、clipPath 局部坐标系、图层 z-order 与 pointer-events 分离，均体现出对 SVG 地图渲染细节的熟练掌握。</li>
+  <li><b>区划聚合的机械正确性无懈可击。</b>89 个跨区地级单元被完整、无重复、无遗漏地划分，34 省全部有归属，前端引用零悬空。问题 5 是"口径"之争，不是"算错"。</li>
+  <li><b>南海诸岛处理合规。</b>34 个省级单位含台湾省；九段线 10 段完整绘制于附图，经数值验证<b>未被裁剪</b>；附图范围（104.5–125°E, 2.5–24.5°N）完整覆盖断界线（108.20–122.79°E, 3.40–24.59°N），并以 6 个符号表示西沙、中沙、东沙、南沙、黄岩岛、曾母暗沙，符合制图惯例。</li>
+</ul>
+
+<h2>五、核查局限</h2>
+<ul>
+  <li><b>城市级区划归属无权威标尺。</b>《中国气象地理区划手册》只给到省级与自然地理线级别的文字描述，地级市归属无公开权威版本。本报告对山东/福建/湖北的判定，依据的是"面板自身显示的文字定义"这一<b>内部一致性标尺</b>，而非声称存在唯一正确答案。</li>
+  <li><b>区划依据文献为转载来源。</b>《中国气象地理区划手册》原书未公开电子版，11 条区划描述经中国天气网、搜狐/网易气象科普等渠道转载核对一致；2021 年规范经中国气象局官网（cma.gov.cn）原文报道核对。若需绝对权威，建议以纸质原书复核。</li>
+  <li><b>山系范围多边形的"正确性"无法客观裁定。</b>山脉无法定界线，100 个多边形的具体形状属制图者判断。本报告只验证了"走向是否符合地理常识"与"注记是否落在范围内"，未判定形状本身是否最优。</li>
+  <li><b>未验证渲染性能。</b>未在不同设备上实测"显示全国市界"（475 个市的合并路径）与全选区划时的帧率表现。</li>
+  <li><b>行政区划数据时效性未核。</b>DataV.GeoAtlas 数据的更新周期与版本日期未标注，无法判断其是否反映最新行政区划调整（本图涉及的 34 个省级单位近年无变更，风险较低）。</li>
+</ul>
+
+<footer>
+  <b>核查方法可复现</b>　本次核查新增以下只读脚本（可随时重跑复核）：<br>
+  <code>build/audit.py</code>（数据源与构建产物一致性，含 12 项字段比对）　·　<code>build/audit2.py</code>（空间关系交叉核查）<br>
+  <code>build/audit3.py</code>（离线自包含性与构建链检查）　·　<code>build/audit_render.js</code>（无头浏览器运行时验证）<br>
+  <code>build/verify_fix.js</code>（河名落点、键盘可达性、面板状态回归验证）<br>
+  渲染截图存于 <code>build/audit_shots/</code>。<br><br>
+  <b>修复阶段新增的构建设施</b>：<code>build/build.py</code> —— 统一入口，按 <code>geo.py → content.py → assemble.py</code> 顺序执行，并内置三道门禁：<br>
+  ① 每座山脉的注记点必须落在其自身示意范围内；② 省级要素清单中的每个要素必须与该省范围相交；③ 补充河流的"整条缺失"主张必须成立（该河英文名不得存在于 Natural Earth 的中国河流集合中）。<br><br>
+  第二轮修复共改动 <code>build/geo.py</code>、<code>build/content.py</code>、<code>build/mtn_shapes.py</code>、<code>build/template.html</code>、<code>build/assemble.py</code>、<code>build/fetch_cities.py</code>、<code>build/fetch_rivers.py</code>，
+  并重新生成 <code>中国气象地理区划交互地图.html</code>（863.8 KB）。16 个原调试脚本与一次性探查脚本已归档至 <code>build/dev-scratch/</code>（未删除，可回溯）。
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# 行尾与文本/二进制属性
+#
+# 背景：Windows 上 git 的 core.autocrlf 默认可能是 true，会在提交时把 LF 转成 CRLF。
+# 本项目有两类文件**绝不能**被转换：
+#   1. 成品 HTML —— 由 build/assemble.py 以 newline='\n' 写出，内含内嵌数据；
+#      build.py 会从成品中取出数据做逐字段比对，行尾变化会污染比对结果。
+#   2. 原始数据 JSON / GeoJSON —— 含大段坐标数组，行尾转换会改变文件字节，
+#      导致产物指纹变化、并且每次 checkout 都产生虚假 diff。
+#
+# 因此这里显式声明：**一律不转换**，仓库内统一使用 LF。
+* text=auto eol=lf
+
+# 二进制文件不做行尾转换、不做 diff
+*.zip   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+
+# 成品 HTML 与内嵌数据：必须保持 LF，禁止转换
+*.html  text eol=lf
+*.json  text eol=lf
+*.geojson text eol=lf
+*.py    text eol=lf
+*.js    text eol=lf
+*.md    text eol=lf

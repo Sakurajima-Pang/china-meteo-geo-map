@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>中国一级气象地理区划 · 行政区划与重要地理要素交互地图</title>
+<style>
+:root{
+  --bg:#eef5fd; --bg2:#e2eefb; --panel:#ffffff; --panel2:#f7fbff;
+  --line:#d3e3f6; --line2:#bcd6f0; --ink:#16283e; --ink2:#496180; --ink3:#7d93ae;
+  --accent:#2f7fe0; --accent-d:#1a5cab; --accent-s:#e7f1fe; --accent-s2:#d5e7fd;
+  --shadow:0 1px 2px rgba(31,90,155,.06), 0 6px 20px rgba(31,90,155,.10);
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%); min-height:100vh;
+  color:var(--ink);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans SC","Hiragino Sans GB",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.top{
+  display:flex; align-items:center; justify-content:space-between; gap:18px;
+  padding:13px 22px; background:rgba(255,255,255,.88); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line); position:sticky; top:0; z-index:30;
+}
+.brand{display:flex; align-items:center; gap:13px; min-width:0}
+.logo{
+  width:40px;height:40px;border-radius:11px;flex:none;color:#fff;font-size:19px;font-weight:700;
+  background:linear-gradient(145deg,#4a9bf0,#2f7fe0);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 12px rgba(47,127,224,.32); letter-spacing:1px;
+}
+.brand h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.2px}
+.brand p{margin:1px 0 0;font-size:12px;color:var(--ink3)}
+.src{font-size:11.5px;color:var(--ink2);text-align:right;line-height:1.55;max-width:47%;
+  border-left:2px solid var(--accent-s2); padding-left:12px}
+main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:16px; padding:16px; align-items:start; max-width:1780px; margin:0 auto}
+@media (max-width:1120px){ main{grid-template-columns:1fr} .panel{position:static!important;max-height:none!important} }
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.mapwrap{overflow:hidden;display:flex;flex-direction:column;min-height:440px}
+.mapbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel2);border-radius:14px 14px 0 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;min-height:22px}
+.legend .lg{display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
+.legend .sw{width:16px;height:0;border-top:4px solid;border-radius:2px}
+.legend .sw.f{width:13px;height:13px;border:0;border-radius:3px}
+.legend .empty{color:var(--ink3)}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-size:12.5px;padding:5px 12px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line2);background:#fff;color:var(--ink2);transition:.15s}
+button:hover{background:var(--accent-s);border-color:var(--accent);color:var(--accent-d)}
+button:active{transform:translateY(1px)}
+.svgbox{position:relative;flex:1;background:linear-gradient(180deg,#f9fcff,#e9f3fe);min-height:0}
+#map{display:block;width:100%;height:auto;touch-action:none;user-select:none}
+.hint{padding:7px 14px;font-size:11.5px;color:var(--ink3);border-top:1px solid var(--line);
+  background:var(--panel2);border-radius:0 0 14px 14px}
+.pv{fill:#cfe3f8;stroke:#ffffff;stroke-width:.9;transition:fill .12s}
+.pv:hover{fill:#a5cbf2;cursor:pointer}
+.pv:focus{stroke:var(--accent);stroke-width:2.2;outline:none}
+.pv.on{fill:#8fbdea}
+.pvp{fill:#f7c66a;fill-opacity:.55;stroke:#dd9612;stroke-width:1.2}
+.cty{fill:none;stroke:#7ba6d6;stroke-width:.8;stroke-dasharray:3 1.8;cursor:pointer}
+.cty:hover{stroke:#2f7fe0;stroke-width:1.4;stroke-dasharray:none}
+.cty-h{fill:#f6c85c;fill-opacity:.55;stroke:#d99a12;stroke-width:1.1}
+.cty-all{fill:none;stroke:#5c8cbf;stroke-width:.6;stroke-dasharray:2.2 1.8;stroke-opacity:.9}
+.rgl{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.rvl{fill:none;stroke:#1e6fc4;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.mkl{stroke:#fff;stroke-width:1}
+.mka{fill:#c0603a;fill-opacity:.34;stroke:#a04a20;stroke-width:1;stroke-linejoin:round}
+.mkt{font-size:9.5px;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round}
+.lbl{font-size:11px;fill:#2f4d70;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round}
+.lbl.sm{font-size:9.5px}
+.jd{fill:none;stroke:#1b5fa8;stroke-width:2.4;stroke-linecap:round;opacity:.95}
+.insetbox{fill:#f4faff;fill-opacity:.45;stroke:#7fa9d6;stroke-width:1}
+.insett{font-size:9.5px;fill:#33506f;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:2.6}
+#tip{position:absolute;pointer-events:none;z-index:20;opacity:0;transition:opacity .12s;
+  background:rgba(20,38,60,.94);color:#fff;padding:7px 10px;border-radius:8px;font-size:12px;
+  line-height:1.5;box-shadow:0 6px 18px rgba(16,45,80,.28);max-width:240px}
+#tip b{font-size:13px}
+#tip span{display:block;color:#b9d3ee;font-size:11px;margin-top:2px}
+.panel{position:sticky;top:80px;max-height:calc(100vh - 98px);display:flex;flex-direction:column;overflow:hidden}
+.panel-hd{padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel2);border-radius:14px 14px 0 0}
+.panel-hd h2{margin:0;font-size:16px}
+.caps{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.tag{font-size:11.5px;padding:2px 9px;border-radius:999px;background:var(--accent-s);color:var(--accent-d);border:1px solid var(--accent-s2)}
+.tag.gray{background:#f1f5fa;color:var(--ink2);border-color:var(--line)}
+.panel-bd{overflow-y:auto;padding:12px 16px 22px;flex:1;scrollbar-width:thin}
+.panel-bd::-webkit-scrollbar{width:9px}
+.panel-bd::-webkit-scrollbar-thumb{background:#c9dcf2;border-radius:9px;border:2px solid #fff}
+.sec{margin-bottom:16px}
+.sec>h3{margin:0 0 8px;font-size:12.5px;color:var(--ink2);font-weight:700;letter-spacing:.4px;
+  display:flex;align-items:center;gap:8px}
+.sec>h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.sec .note{font-size:11px;color:var(--ink3);margin:-2px 0 8px;line-height:1.65}
+.item{display:flex;gap:9px;align-items:flex-start;padding:7px 9px;border-radius:9px;
+  border:1px solid transparent;cursor:pointer;transition:.13s;margin-bottom:2px}
+.item:hover{background:var(--accent-s);border-color:var(--accent-s2)}
+.item input{margin:3px 0 0;width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex:none}
+.item .dot{width:11px;height:11px;border-radius:3px;background:var(--rc,#999);margin-top:4px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.item .tx{min-width:0}
+.item .nm{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.item .nm i{font-style:normal;font-size:10.5px;padding:0 6px;border-radius:999px;background:#ffeccd;color:#8d5c0c;border:1px solid #f6dcae}
+.item .ds{display:block;font-size:11.5px;color:var(--ink2);line-height:1.55;margin-top:1px}
+.item .mt{display:block;font-size:11px;color:var(--ink3);font-family:var(--mono);margin-top:2px;line-height:1.5}
+.item.ck{background:var(--accent-s);border-color:var(--accent-s2)}
+.item.ck .nm{color:var(--accent-d)}
+.typ{font-size:10.5px;padding:1px 6px;border-radius:5px;background:#eef4fb;color:var(--ink2);border:1px solid var(--line);font-weight:400}
+.empty{color:var(--ink3);font-size:12.5px;text-align:center;padding:22px 10px;line-height:1.95}
+.empty b{color:var(--ink2)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:2px 0 14px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 8px;text-align:center}
+.stat b{display:block;font-size:17px;color:var(--accent-d);font-family:var(--mono)}
+.stat span{font-size:11px;color:var(--ink3)}
+footer{padding:6px 22px 34px;max-width:1780px;margin:0 auto;font-size:11.5px;color:var(--ink3);line-height:1.9}
+footer b{color:var(--ink2)}
+.fg{background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo">气</div>
+    <div>
+      <h1>中国一级气象地理区划交互地图</h1>
+      <p>行政区划底图 · 一级气象地理区划 · 重要地理要素</p>
+    </div>
+  </div>
+  <div class="src">
+    区划依据：中国气象局《气象地理区划规范》(2021) 与《中国气象地理区划手册》<br>
+    行政区划底图：DataV.GeoAtlas 行政区划数据（源自高德开放平台，GCJ-02）
+  </div>
+</header>
+
+<main>
+  <section class="card mapwrap">
+    <div class="mapbar">
+      <div class="legend" id="legend"></div>
+      <div class="tools">
+        <button id="btnAllCity" type="button">显示全国市界</button>
+        <button id="btnResetView" type="button">复位视图</button>
+        <button id="btnClear" type="button">清空标注</button>
+        <button id="btnLabels" type="button">隐藏省名</button>
+      </div>
+    </div>
+    <div class="svgbox" id="svgbox">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="中国行政区划与一级气象地理区划地图"></svg>
+      <div id="tip"></div>
+    </div>
+    <div class="hint">悬停省份查看信息 · 单击省份在右侧展开区划与要素 · 「显示全国市界」可查看省以下各级行政区 · 滚轮缩放 / 拖拽平移 / 双击复位</div>
+  </section>
+
+  <aside class="card panel">
+    <div class="panel-hd" id="panelHd"></div>
+    <div class="panel-bd" id="panelBd"></div>
+  </aside>
+</main>
+
+<footer>
+  <div class="fg">
+    <b>数据来源与制图说明</b><br>
+    1. <b>行政区划</b>：省、地两级界线（直辖市与特别行政区为区级）取自 DataV.GeoAtlas 行政区划数据（源自高德开放平台，GCJ-02 坐标系），覆盖 34 个省级行政区，含台湾省、南海诸岛及九段线。<b>数据缺口说明</b>：DataV 不提供台湾省的地级界线（其接口返回 404），故台湾省下辖县市按现行政区划以<b>点位</b>方式标注，无面状边界；中国澳门特别行政区 8 个堂区中有 3 个（花王堂区、望德堂区、风顺堂区）源数据亦未提供边界，面板中标为"无边界数据"。<br>
+    2. <b>一级气象地理区划</b>：区划名称、数量（11 个）及所辖范围文字表述依据《中国气象地理区划手册》；并参照中国气象局 2021 年印发的《气象地理区划规范》《国家级气象服务产品地理用语业务规定》——后者将黄淮、江淮、江南、江汉等列为"特定区域区划"，将省区为主的 10 个大区列为"一级地区区划"。<br>
+    3. <b>河流</b>：河道中心线取自 Natural Earth 公共领域数据集的河道中心线图层（WGS-84 坐标系）；同一河流被拆散的碎段按<b>端点走向自动拼接</b>为连续河道。经逐条回查原始数据，确需以简化线补充的只有：<b>整条缺失的河流</b>（南渡江），与<b>干流中的断开段</b>（淮河下游 116.5°E 以东、长江河口段 119.6°E 以东、珠江干流武宣—梧州段、岷江松潘—乐山段、瓯江与钱塘江的入海段、汉江白河—丹江口段、鸭绿江丹东—宽甸段）。珠江的西江、北江、东江在源数据中是独立河道，本图按既定做法作为独立线段并入珠江系统绘制，故珠江呈现为多条相接线段。<b>山脉</b>：山系不存在法定界线，本图按各山系的<b>真实走向</b>（东北—西南、西北—东南、东西、南北等）与已知分布范围绘制为<b>示意范围多边形</b>，用以表达延展方向与大致幅员；面积较小的名山（如泰山、黄山）取山体主体范围并作了约 3 倍线性放大以保证可读性，<b>故其范围不可用于量测</b>。<b>湖泊</b>为按已知点位标注的示意注记，不含面状水域边界。<br>
+    4. <b>界线精度说明</b>：一级气象地理区划的原生界线以黄河、淮河、长江、南岭等自然地理线为界，<b>本图按地级市（直辖市、特别行政区按区）整体聚合绘制，属近似范围</b>；跨区划的地级市按主体范围归并（如江苏淮安、盐城归入江淮地区，南京归入江南地区）。<b>须特别说明：跨区划省份的"城市级归属"在公开文献中并无权威版本</b>——《中国气象地理区划手册》只给出到省级与自然地理线级别的文字描述，本图的城市级切分系依据这些自然地理线所作的<b>推断性细化</b>，与各区域文字定义中的表述可能存在出入（例如山东一省按《手册》分属华北南部与黄淮北部，本图据此取南北分界，故泰安、淄博等市的实际市域跨越该界线）。精确界线请以中国气象局发布的气象地理区划图为准。<br>
+    5. <b>坐标基准</b>：行政区划为 GCJ-02，河道中心线为 WGS-84，两者存在约 300–600 m 的系统性偏移；在本图比例（主图约 21 像素/经度）下约合 0.1 像素，肉眼不可见，但不应用于高精度量测。<br>
+    6. 本页面为教学与演示用途的示意图，不作为权威地图或气象业务依据使用。
+  </div>
+</footer>
+
+<script>const DATA = /*__DATA__*/;</script>
+<script>
+(function(){
+"use strict";
+var SC = 1000, RAD = Math.PI/180, SVGNS = "http://www.w3.org/2000/svg";
+function $(id){ return document.getElementById(id); }
+function mk(n, a){ var e = document.createElementNS(SVGNS, n); if(a) for(var k in a) e.setAttribute(k, a[k]); return e; }
+function txt(n, a, s){ var e = mk(n, a); e.textContent = s; return e; }
+
+/* ---------- 投影（墨卡托） ---------- */
+function merc(lng, lat){ return [lng*RAD, Math.log(Math.tan(Math.PI/4 + lat*RAD/2))]; }
+var MAIN_BB  = {lng:[73,135.5], lat:[17.6,53.8]};
+var INSET_BB = {lng:[104.5,125], lat:[2.5,24.5]};
+var VW = 1000, VH = 739;
+function makeProj(bb, vw, vh, pad){
+  var p0 = merc(bb.lng[0], bb.lat[0]), p1 = merc(bb.lng[1], bb.lat[1]);
+  var w = p1[0]-p0[0], h = p1[1]-p0[1];
+  var s = Math.min((vw-2*pad)/w, (vh-2*pad)/h);
+  var ox = (vw - w*s)/2, oy = (vh - h*s)/2;
+  return function(lng, lat){
+    var p = merc(lng, lat);
+    return [ox + (p[0]-p0[0])*s, oy + (p1[1]-p[1])*s];
+  };
+}
+var PM = makeProj(MAIN_BB, VW, VH, 6);
+
+/* ---------- 几何 → 路径 ---------- */
+function ringPath(flat, P, close){
+  var s = "", i, p;
+  for(i = 0; i < flat.length; i += 2){
+    p = P(flat[i]/SC, flat[i+1]/SC);
+    s += (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1);
+  }
+  return close === false ? s : s + "Z";
+}
+function topLat(poly){
+  var r0 = poly[0], t = -999;
+  for(var k = 1; k < r0.length; k += 2){ var la = r0[k]/SC; if(la > t) t = la; }
+  return t;
+}
+/* geomPath(几何, 投影, 条件)：cond='keep' 保留外环最大纬度>=v；'skip' 保留 >=v 之外 */
+function geomPath(geom, P, v, mode){
+  var s = "", i, j, poly;
+  for(i = 0; i < geom.length; i++){
+    poly = geom[i];
+    if(v !== undefined){
+      var t = topLat(poly);
+      if(mode === "below" ? t > v : t < v) continue;
+    }
+    for(j = 0; j < poly.length; j++) s += ringPath(poly[j], P) + " ";
+  }
+  return s;
+}
+/* 注：区划标签位置由数据中的 pos 指定，不做几何包围盒计算 */
+
+/* ---------- 数据索引 ---------- */
+/* 数据由 build/assemble.py 注入到上方 <script> 的数据占位符位置。
+   字段名是缩写的，对照：p=省份 ci=市级 jd=九段线 rv=河流 mt=山脉 lk=湖泊
+   rg=一级区划 pr=省份→区划 feat=省级要素清单 info=省份简称/省会
+   ec=补充点位单元（台湾下辖县市） isles=南海岛礁符号
+   这里预先建好各张索引表，避免渲染时反复线性查找。 */
+var DATA_ = DATA;
+var PROV = {}, CITY = DATA_.ci, MT = DATA_.mt, LK = DATA_.lk, RV = DATA_.rv, EC = DATA_.ec || {};
+DATA_.p.forEach(function(p){ PROV[p.a] = p; });
+var REGION = {}; DATA_.rg.forEach(function(r){ REGION[r.id] = r; });
+var CITY_NAME = {}; for(var ad in CITY) CITY_NAME[ad] = CITY[ad].map(function(c){ return c.n; });
+/* 城市（区）要素按自身行政区划代码索引，供"c:"要素高亮使用 */
+var CITY_BY_AD = {};
+for(var pa in CITY){ CITY[pa].forEach(function(c){ CITY_BY_AD[c.a] = c; }); }
+/* 补充点位单元按名称预建索引，避免渲染时做二次遍历 */
+var PT = {};
+for(var pk in EC){ EC[pk].forEach(function(t){ PT[t[0]] = t; }); }
+
+var state = { sel:null, regions:new Set(), feats:new Set(), labels:true };
+
+/* ---------- 建 SVG ---------- */
+var svg = $("map");
+svg.setAttribute("viewBox", "0 0 " + VW + " " + VH);
+var defs = mk("defs");
+var cpMain = mk("clipPath", {id:"clipMain"});
+cpMain.appendChild(mk("rect", {x:-2, y:-2, width:VW+4, height:VH+4}));
+defs.appendChild(cpMain);
+var cpInset = mk("clipPath", {id:"clipInset"});
+defs.appendChild(cpInset);
+svg.appendChild(defs);
+
+var gRoot  = mk("g");
+var gProv  = mk("g", {id:"gProv"});
+var gAllCity = mk("g", {id:"gAllCity", "pointer-events":"none"});
+var gSel   = mk("g", {id:"gSel", "pointer-events":"none"});
+var gCity  = mk("g", {id:"gCity"});
+var gRiver = mk("g", {id:"gRiver", "pointer-events":"none"});
+var gMark  = mk("g", {id:"gMark", "pointer-events":"none"});
+var gReg   = mk("g", {id:"gReg", "pointer-events":"none"});
+var gRText = mk("g", {id:"gRText", "pointer-events":"none"});
+var gLabel = mk("g", {id:"gLabel", "pointer-events":"none"});
+var gInset = mk("g", {id:"gInset", "pointer-events":"none"});
+[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText,gLabel,gInset].forEach(function(g){ gRoot.appendChild(g); });
+svg.appendChild(gRoot);
+[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach(function(g){ g.setAttribute("clip-path","url(#clipMain)"); });
+
+/* ---------- 省级底图 ---------- */
+/* 按省份逐个建 path。第三、四个参数 (17.8, "keep") 是南海岛礁的剔除规则：
+   外环最大纬度 >= 17.8°N 才保留，使南海岛礁只在附图呈现、不污染主图。
+   每个省份同时挂上鼠标、键盘两类事件，保证不仅是鼠标可达。 */
+var provEl = {};
+DATA_.p.forEach(function(p){
+  var d = geomPath(p.g, PM, 17.8, "keep");
+  var rid = DATA_.pr[p.a] || [];
+  var el = mk("path", {d:d, "fill-rule":"evenodd", "class":"pv", "data-ad":p.a,
+    "tabindex":"0", role:"button",
+    "aria-label":p.n + "，一级气象地理区划：" +
+      (rid.length ? rid.map(function(id){ return REGION[id].n; }).join("、") : "无")});
+  el.addEventListener("mouseenter", function(e){ provTip(p, e); });
+  el.addEventListener("mousemove", moveTip);
+  el.addEventListener("mouseleave", hideTip);
+  el.addEventListener("click", function(){ if(dragMoved) return; selectProvince(p.a); });
+  /* 键盘可达：Tab 聚焦后回车/空格选中，聚焦时同样弹出提示 */
+  el.addEventListener("focus", function(){
+    var r = el.getBoundingClientRect();
+    provTip(p, {clientX:r.left + r.width/2, clientY:r.top + r.height/2});
+  });
+  el.addEventListener("blur", hideTip);
+  el.addEventListener("keydown", function(ev){
+    if(ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar"){
+      ev.preventDefault(); selectProvince(p.a);
+    }
+  });
+  gProv.appendChild(el);
+  provEl[p.a] = el;
+});
+
+/* ---------- 南海诸岛附图 ---------- */
+(function(){
+  var p0 = merc(INSET_BB.lng[0], INSET_BB.lat[0]), p1 = merc(INSET_BB.lng[1], INSET_BB.lat[1]);
+  var ratio = (p1[0]-p0[0]) / (p1[1]-p0[1]);
+  var IW = 170, IH = Math.round(IW / ratio);
+  var IX = VW - IW - 12, IY = VH - IH - 12;
+  /* clipPath 在元素自身变换后的用户坐标系中解析，故使用局部坐标 */
+  cpInset.appendChild(mk("rect", {x:2.5, y:2.5, width:IW-5, height:IH-5}));
+  var P = makeProj(INSET_BB, IW, IH, 5);
+  var g = mk("g", {transform:"translate(" + IX + "," + IY + ")", "clip-path":"url(#clipInset)"});
+  DATA_.p.forEach(function(p){
+    var d = geomPath(p.g, P);
+    if(d) g.appendChild(mk("path", {d:d, "fill-rule":"evenodd", fill:"#cfe3f8", stroke:"#ffffff", "stroke-width":".4"}));
+  });
+  DATA_.jd.forEach(function(flat){
+    g.appendChild(mk("path", {"class":"jd", d:ringPath(flat, P)}));
+  });
+  /* 南海诸岛主要岛群符号（岛礁实际面积在该比例下不足 1 像素，按制图惯例以符号表示）。
+     坐标与名称均来自数据层 DATA_.isles，不在渲染代码中硬编码。 */
+  (DATA_.isles || []).forEach(function(it){
+    var q = P(it[1], it[2]);
+    var c = mk("circle", {cx:q[0].toFixed(1), cy:q[1].toFixed(1), r:1.6, fill:"#1b5fa8"});
+    c.appendChild(txt("title", {}, it[0]));
+    g.appendChild(c);
+  });
+  g.appendChild(txt("text", {"class":"insett", x:7, y:IH-7}, "南海诸岛"));
+  gInset.appendChild(mk("rect", {"class":"insetbox", x:IX, y:IY, width:IW, height:IH, rx:3}));
+  gInset.appendChild(g);
+})();
+
+/* ---------- 省名 ---------- */
+var LABEL_OFF = {"110000":[-16,-8],"120000":[9,-8],"310000":[16,6],"810000":[20,15],"820000":[-28,17],"710000":[14,6]};
+function drawLabels(){
+  while(gLabel.firstChild) gLabel.removeChild(gLabel.firstChild);
+  if(!state.labels) return;
+  /* 已激活的区划标签位置，用于省名避让 */
+  var rl = Array.from(state.regions).map(function(id){ var q = PM(REGION[id].pos[0], REGION[id].pos[1]); return q; });
+  DATA_.p.forEach(function(p){
+    var off = LABEL_OFF[p.a] || [0,0], q = PM(p.c[0], p.c[1]);
+    var x = q[0] + off[0], y = q[1] + off[1], i;
+    for(i = 0; i < rl.length; i++){
+      if(Math.abs(rl[i][0]-x) < 40 && Math.abs(rl[i][1]-y) < 22) return;   /* 与区划名冲突则让位 */
+    }
+    gLabel.appendChild(txt("text", {"class":"lbl" + (p.g.length > 10 ? " sm" : ""),
+      x:x.toFixed(1), y:y.toFixed(1), "text-anchor":"middle"}, DATA_.info[p.a][0]));
+  });
+}
+
+/* ---------- 提示 ---------- */
+var tip = $("tip"), svgbox = $("svgbox");
+function moveTip(e){
+  var r = svgbox.getBoundingClientRect();
+  var x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+  if(x > r.width - 250) x = e.clientX - r.left - 258;
+  if(y > r.height - 96) y = e.clientY - r.top - 92;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function provTip(p, e){
+  var rs = DATA_.pr[p.a] || [];
+  var info = DATA_.info[p.a];
+  var names = rs.map(function(id){ return REGION[id].n; }).join(" / ");
+  tip.innerHTML = "<b>" + p.n + "</b><span>简称 " + info[1] +
+    (info[2] !== "—" ? " · 省会 " + info[2] : "") +
+    "</span><span>一级气象地理区划：" + (names || "—") + "</span>";
+  tip.style.opacity = 1; moveTip(e);
+}
+function hideTip(){ tip.style.opacity = 0; }
+
+/* ---------- 选择省份 ---------- */
+function selectProvince(ad){
+  state.sel = ad;
+  for(var k in provEl) provEl[k].classList.toggle("on", k === ad);
+  drawSel(); drawCities(); renderPanel();
+}
+function drawSel(){
+  while(gSel.firstChild) gSel.removeChild(gSel.firstChild);
+  if(!state.sel) return;
+  gSel.appendChild(mk("path", {"class":"pvp", d:geomPath(PROV[state.sel].g, PM, 17.8, "keep"), "fill-rule":"evenodd"}));
+}
+function drawCities(){
+  while(gCity.firstChild) gCity.removeChild(gCity.firstChild);
+  if(!state.sel) return;
+  var list = CITY[state.sel] || [];
+  list.forEach(function(c){
+    var d = geomPath(c.g, PM, 17.8, "keep");
+    if(!d) return;
+    var el = mk("path", {"class":"cty", d:d, "fill-rule":"evenodd"});
+    el.addEventListener("mouseenter", function(e){
+      tip.innerHTML = "<b>" + c.n + "</b><span>" + PROV[state.sel].n + " 下辖 · 代码 " + c.a + "</span>";
+      tip.style.opacity = 1; moveTip(e);
+    });
+    el.addEventListener("mousemove", moveTip);
+    el.addEventListener("mouseleave", hideTip);
+    el.addEventListener("click", function(ev){ ev.stopPropagation(); if(!dragMoved) toggleFeat("c:" + c.a); });
+    gCity.appendChild(el);
+  });
+}
+
+/* ---------- 全国地级（区级）界线 ---------- */
+var allCityOn = false, allCityPath = null;
+function renderAllCities(){
+  if(!allCityPath){
+    var frag = [], pa, i, lst, d;
+    for(pa in CITY){
+      lst = CITY[pa];
+      for(i = 0; i < lst.length; i++){
+        d = geomPath(lst[i].g, PM, 17.8, "keep");
+        if(d) frag.push(d);
+      }
+    }
+    if(!frag.length) return;
+    allCityPath = mk("path", {"class":"cty-all", d:frag.join(" "), "fill-rule":"evenodd"});
+    gAllCity.appendChild(allCityPath);
+  }
+  allCityPath.style.display = allCityOn ? "" : "none";
+}
+
+/* ---------- 区划框选 ---------- */
+/* regionGeom 把区划成员展开成一组合并的多边形环。成员有两种结构：
+   m.all 表示整省纳入（取该省全部几何）；否则 m.ci 是地级市索引数组，
+   按下标从 CITY[省代码] 中取对应市的几何。结果按区划 id 缓存，避免重复展开。 */
+var regionRings = {};
+function regionGeom(rid){
+  if(regionRings[rid]) return regionRings[rid];
+  var r = REGION[rid], rings = [];
+  r.mem.forEach(function(m){
+    if(m.all){ PROV[m.p].g.forEach(function(poly){ rings.push(poly); }); }
+    else { (CITY[m.p] || []).forEach(function(c, i){ if(m.ci.indexOf(i) >= 0) c.g.forEach(function(poly){ rings.push(poly); }); }); }
+  });
+  regionRings[rid] = rings;
+  return rings;
+}
+function renderRegions(){
+  while(gReg.firstChild) gReg.removeChild(gReg.firstChild);
+  while(gRText.firstChild) gRText.removeChild(gRText.firstChild);
+  Array.from(state.regions).forEach(function(rid){
+    var r = REGION[rid], rings = regionGeom(rid), d = "", i;
+    for(i = 0; i < rings.length; i++){
+      var poly = rings[i];
+      if(topLat(poly) < 17.8) continue;            /* 南海诸岛只在附图中体现 */
+      for(var j = 0; j < poly.length; j++) d += ringPath(poly[j], PM) + " ";
+    }
+    if(!d) return;
+    /* 先描粗线，再以同色填充覆盖内部半线，得到整体外框效果 */
+    gReg.appendChild(mk("path", {"class":"rgl", d:d, stroke:r.c, "stroke-width":7, "fill-rule":"evenodd"}));
+    var gf = mk("g", {fill:r.c, style:"opacity:.17"});
+    gf.appendChild(mk("path", {d:d, "fill-rule":"evenodd"}));
+    gReg.appendChild(gf);
+    /* 区划名（位置按人工设定的地理坐标放置，避免与省名冲突） */
+    var q = PM(r.pos[0], r.pos[1]);
+    gRText.appendChild(txt("text", {"class":"lbl", x:q[0].toFixed(1), y:q[1].toFixed(1),
+      "text-anchor":"middle", fill:r.c, style:"font-size:12.5px"}, r.n));
+  });
+  drawLabels();
+  renderLegend();
+}
+
+/* ---------- 要素高亮 ---------- */
+function featName(key){
+  var p = key.split(":");
+  if(p[0] === "m") return MT[p[1]] ? MT[p[1]][0] : p[1];
+  if(p[0] === "l") return LK[p[1]] ? LK[p[1]][0] : p[1];
+  if(p[0] === "r") return RV[p[1]] ? RV[p[1]].n : p[1];
+  return p[1];
+}
+function renderFeats(){
+  while(gRiver.firstChild) gRiver.removeChild(gRiver.firstChild);
+  while(gMark.firstChild) gMark.removeChild(gMark.firstChild);
+  var keys = Array.from(state.feats), i, k;
+
+  /* 河流 */
+  function riverLabelPos(rv){
+    /* ① 数据层给了锚点（lp）则直接用；② 否则取最长河段按「累积弧长」的中点。
+       不能按数组下标取中点：点位疏密不均时（如珠江上游点位密、下游稀）会落到上游山区。 */
+    if(rv.lp) return PM(rv.lp[0], rv.lp[1]);
+    var bi = 0, si;
+    for(si = 0; si < rv.s.length; si++) if(rv.s[si].length > rv.s[bi].length) bi = si;
+    var sg = rv.s[bi], tot = 0, j, dx, dy, L;
+    for(j = 2; j < sg.length; j += 2){
+      dx = sg[j] - sg[j-2]; dy = sg[j+1] - sg[j-1];
+      tot += Math.sqrt(dx*dx + dy*dy);
+    }
+    var half = tot / 2, run = 0, lx = sg[0], ly = sg[1];
+    for(j = 2; j < sg.length; j += 2){
+      dx = sg[j] - sg[j-2]; dy = sg[j+1] - sg[j-1];
+      L = Math.sqrt(dx*dx + dy*dy);
+      if(run + L >= half){
+        var t = L ? (half - run) / L : 0;
+        lx = sg[j-2] + t*dx; ly = sg[j-1] + t*dy;
+        break;
+      }
+      run += L;
+    }
+    return PM(lx/SC, ly/SC);
+  }
+  for(i = 0; i < keys.length; i++){
+    k = keys[i];
+    if(k.indexOf("r:") !== 0) continue;
+    var rv = RV[k.slice(2)]; if(!rv) continue;
+    for(var s = 0; s < rv.s.length; s++){
+      gRiver.appendChild(mk("path", {"class":"rvl", d:ringPath(rv.s[s], PM, false)}));
+    }
+    var q = riverLabelPos(rv);
+    gRiver.appendChild(txt("text", {"class":"mkt", x:q[0].toFixed(1), y:(q[1]-6).toFixed(1),
+      "text-anchor":"middle", fill:"#1a63b5"}, rv.n));
+  }
+  /* 城市面高亮（先画，位于符号之下） */
+  for(i = 0; i < keys.length; i++){
+    k = keys[i];
+    if(k.indexOf("c:") !== 0) continue;
+    var ca = k.slice(2), cc = CITY_BY_AD[ca];
+    if(!cc) continue;
+    var d = geomPath(cc.g, PM, 17.8, "keep");
+    if(d) gMark.appendChild(mk("path", {"class":"cty-h", d:d, "fill-rule":"evenodd"}));
+    var qc = PM(cc.c[0], cc.c[1]);
+    gMark.appendChild(txt("text", {"class":"mkt", x:qc[0].toFixed(1), y:(qc[1]+3).toFixed(1),
+      "text-anchor":"middle", fill:"#9a6408"}, cc.n));
+  }
+  /* 山脉 / 湖泊 / 县市点位 */
+  for(i = 0; i < keys.length; i++){
+    k = keys[i];
+    var kind = k.slice(0,1), id = k.slice(2), o, col, qq;
+    if(kind === "m" || kind === "l"){
+      o = kind === "m" ? MT[id] : LK[id]; if(!o) continue;
+      col = kind === "m" ? "#a04a20" : "#1a86b8";
+      qq = PM(o[1], o[2]);
+      if(kind === "m"){
+        /* 山系以「走向示意范围」多边形呈现，而非单点符号 */
+        var dd = ringPath(o[3], PM);
+        if(dd) gMark.appendChild(mk("path", {"class":"mka", d:dd}));
+      } else {
+        gMark.appendChild(mk("circle", {"class":"mkl", cx:qq[0].toFixed(1), cy:qq[1].toFixed(1), r:4.8, fill:col}));
+      }
+      gMark.appendChild(txt("text", {"class":"mkt", x:(qq[0]+8).toFixed(1), y:(qq[1]+3.4).toFixed(1), fill:col}, o[0]));
+      continue;
+    }
+    if(kind === "p"){
+      var found = PT[id];
+      if(!found) continue;
+      qq = PM(found[1], found[2]);
+      gMark.appendChild(mk("circle", {"class":"mkl", cx:qq[0].toFixed(1), cy:qq[1].toFixed(1), r:3.6, fill:"#e08a00"}));
+      gMark.appendChild(txt("text", {"class":"mkt", x:(qq[0]+6.5).toFixed(1), y:(qq[1]+3.2).toFixed(1), fill:"#9a6408"}, id));
+    }
+  }
+  renderLegend();
+}
+
+/* ---------- 图例 ---------- */
+function renderLegend(){
+  var parts = [], rids = Array.from(state.regions), fs = Array.from(state.feats);
+  if(rids.length){
+    parts.push('<span class="lg"><span class="sw" style="border-color:#2f7fe0"></span>一级气象地理区划（粗线框出）</span>');
+    rids.forEach(function(id){
+      parts.push('<span class="lg"><span class="sw f" style="background:' + REGION[id].c + '"></span>' + REGION[id].n + "</span>");
+    });
+  }
+  function cnt(p){ return fs.filter(function(k){ return k.indexOf(p) === 0; }).length; }
+  var nR = cnt("r:"), nM = cnt("m:"), nL = cnt("l:"), nC = cnt("c:") + cnt("p:");
+  if(nR) parts.push('<span class="lg"><span class="sw" style="border-color:#1e6fc4"></span>河流 ' + nR + "</span>");
+  if(nM) parts.push('<span class="lg"><span class="sw f" style="background:#c0603a"></span>山脉 ' + nM + "</span>");
+  if(nL) parts.push('<span class="lg"><span class="sw f" style="background:#1a86b8"></span>湖泊 ' + nL + "</span>");
+  if(nC) parts.push('<span class="lg"><span class="sw f" style="background:#f6c85c"></span>城市 ' + nC + "</span>");
+  $("legend").innerHTML = parts.length ? parts.join("") :
+    '<span class="empty">尚未勾选任何区划或要素 —— 点击地图中的省份开始</span>';
+}
+
+/* ---------- 勾选 ---------- */
+function toggleRegion(id){
+  if(state.regions.has(id)) state.regions.delete(id); else state.regions.add(id);
+  renderRegions(); syncChecks();
+}
+function toggleFeat(key){
+  if(state.feats.has(key)) state.feats.delete(key); else state.feats.add(key);
+  renderFeats(); syncChecks();
+}
+function syncChecks(){
+  var list = document.querySelectorAll("#panelBd input[type=checkbox]");
+  for(var i = 0; i < list.length; i++){
+    var el = list[i], k = el.dataset.kind, id = el.dataset.id;
+    el.checked = (k === "region") ? state.regions.has(id) : state.feats.has(k + ":" + id);
+    var lab = el.parentNode;
+    if(lab && lab.classList) lab.classList.toggle("ck", el.checked);
+  }
+}
+
+/* ---------- 面板 ---------- */
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+function regionItemHTML(id, ad){
+  var r = REGION[id];
+  var mem = null;
+  for(var i = 0; i < r.mem.length; i++) if(r.mem[i].p === ad) mem = r.mem[i];
+  var partial = mem && !mem.all;
+  var extra = "", badge = "";
+  if(ad){
+    badge = partial ? '<i>部分</i>' : '<i style="background:#e4f0dd;color:#3f7a2b;border-color:#cbe3bf">全境</i>';
+  }
+  if(partial){
+    var names = mem.ci.map(function(ix){ return CITY[ad][ix].n; });
+    extra = '<span class="mt">本省纳入部分：' + esc(names.join("、")) + '</span>';
+  }
+  return '<label class="item" style="--rc:' + r.c + '">' +
+    '<input type="checkbox" data-kind="region" data-id="' + id + '">' +
+    '<span class="dot"></span><span class="tx">' +
+    '<span class="nm">' + esc(r.n) + badge + '</span>' +
+    '<span class="ds">' + esc(r.t) + '</span>' + extra + '</span></label>';
+}
+function renderPanel(){
+  var hd = $("panelHd"), bd = $("panelBd"), html, i;
+  if(!state.sel){
+    hd.innerHTML = '<h2>选择一个省级行政区</h2><div class="caps"><span class="tag gray">未选择</span>' +
+      '<span class="tag gray">可先在下方直接勾选区划</span></div>';
+    html = '<div class="stats">' +
+      '<div class="stat"><b>' + DATA_.p.length + '</b><span>省级行政区</span></div>' +
+      '<div class="stat"><b>' + DATA_.rg.length + '</b><span>一级气象地理区划</span></div>' +
+      '<div class="stat"><b>' + Object.keys(MT).length + '</b><span>山脉注记</span></div>' +
+      '</div><div class="empty">把鼠标移到地图上的任一省份并点击，即可查看：<br>' +
+      '<b>① 该省所属的一级气象地理区划</b>（勾选后用粗线整体框出）<br>' +
+      '<b>② 该省重要地理要素</b> —— 山脉、河流湖泊、主要城市<br>（勾选后在地图上高亮显示）</div>' +
+      '<div class="sec"><h3>一级气象地理区划一览</h3>' +
+      '<div class="note">勾选可直接在地图上框出该区划的全国范围。</div>';
+    for(i = 0; i < DATA_.rg.length; i++) html += regionItemHTML(DATA_.rg[i].id, null);
+    html += '</div>';
+    bd.innerHTML = html; syncChecks(); return;
+  }
+  var p = PROV[state.sel], info = DATA_.info[state.sel];
+  var rids = DATA_.pr[state.sel] || [];
+  var f = DATA_.feat[state.sel] || {m:[], w:[]};
+  var cities = CITY[state.sel] || [];
+  var extras = EC[state.sel] || [];
+  hd.innerHTML = '<h2>' + esc(p.n) + '</h2><div class="caps">' +
+    '<span class="tag">简称 ' + esc(info[1]) + '</span>' +
+    (info[2] !== "—" ? '<span class="tag">省会 ' + esc(info[2]) + '</span>' : '') +
+    '<span class="tag gray">下辖单元 ' + (cities.length + extras.length) + '</span>' +
+    '<span class="tag gray">代码 ' + state.sel + '</span></div>';
+
+  html = '<div class="sec"><h3>所属一级气象地理区划</h3>' +
+    '<div class="note">勾选后用粗线在地图上整体框出该区划；标记"部分"表示本省仅部分区域属于该区划。</div>';
+  for(i = 0; i < rids.length; i++) html += regionItemHTML(rids[i], state.sel);
+  html += '</div>';
+
+  html += '<div class="sec"><h3>山脉 <span class="typ">' + f.m.length + '</span></h3>' +
+    '<div class="note">勾选后按山系走向在地图上显示其示意范围（多边形），可直观看出延展方向。范围系按走向绘制的示意图而非山系界线圈定，小面积名山为保可读性作了约 3 倍放大，故<b>不可用于量测</b>。</div>';
+  if(f.m.length){
+    for(i = 0; i < f.m.length; i++){
+      var o = MT[f.m[i]];
+      html += '<label class="item"><input type="checkbox" data-kind="m" data-id="' + f.m[i] + '">' +
+        '<span class="tx"><span class="nm">' + esc(o[0]) + '<span class="typ">范围</span></span>' +
+        '<span class="mt">中心 ' + o[2].toFixed(2) + '°N ' + o[1].toFixed(2) + '°E</span></span></label>';
+    }
+  } else html += '<div class="note">本行政区无列入本图集的山脉注记。</div>';
+  html += '</div>';
+
+  html += '<div class="sec"><h3>河流 · 湖泊 <span class="typ">' + f.w.length + '</span></h3>';
+  if(f.w.length){
+    for(i = 0; i < f.w.length; i++){
+      var kind = f.w[i].slice(0,1), id = f.w[i].slice(2);
+      var isR = kind === "r";
+      var name = isR ? RV[id].n : LK[id][0];
+      var meta = isR ? "河流（河道中心线示意）" : ("湖泊 · " + LK[id][2].toFixed(2) + "°N " + LK[id][1].toFixed(2) + "°E");
+      html += '<label class="item"><input type="checkbox" data-kind="' + kind + '" data-id="' + id + '">' +
+        '<span class="tx"><span class="nm">' + esc(name) + '<span class="typ">' + (isR ? "河流" : "湖泊") + '</span></span>' +
+        '<span class="mt">' + esc(meta) + '</span></span></label>';
+    }
+  } else html += '<div class="note">本行政区无列入本图集的河流或湖泊。</div>';
+  html += '</div>';
+
+  html += '<div class="sec"><h3>主要城市 / 下辖行政区 <span class="typ">' + (cities.length + extras.length) + '</span></h3>' +
+    '<div class="note">' + (extras.length
+      ? '有边界数据的单元：勾选后在地图上高亮其行政区域范围；标注"点位"的单元仅有位置数据（数据源未提供边界），勾选后只在地图上标出位置，无范围可高亮。'
+      : '勾选后在地图上高亮该单元的行政区域范围；单击地图上该单元边界亦可切换。') + '</div>';
+  for(i = 0; i < cities.length; i++){
+    var noGeom = !cities[i].g || !cities[i].g.length;
+    html += '<label class="item"><input type="checkbox" data-kind="c" data-id="' + cities[i].a + '"' +
+      (noGeom ? ' disabled' : '') + '>' +
+      '<span class="tx"><span class="nm">' + esc(cities[i].n) +
+      (noGeom ? '<span class="typ">无边界数据</span>' : '') + '</span>' +
+      '<span class="mt">' + (noGeom
+        ? '行政区划代码 ' + cities[i].a + ' · 数据源未提供边界'
+        : '行政区划代码 ' + cities[i].a) + '</span></span></label>';
+  }
+  for(i = 0; i < extras.length; i++){
+    html += '<label class="item"><input type="checkbox" data-kind="p" data-id="' + esc(extras[i][0]) + '">' +
+      '<span class="tx"><span class="nm">' + esc(extras[i][0]) + '<span class="typ">点位</span></span>' +
+      '<span class="mt">' + extras[i][2].toFixed(2) + '°N ' + extras[i][1].toFixed(2) + '°E</span></span></label>';
+  }
+  html += '</div>';
+  bd.innerHTML = html; syncChecks(); bd.scrollTop = 0;
+}
+/* 事件委托：面板内所有复选框 */
+$("panelBd").addEventListener("change", function(ev){
+  var el = ev.target;
+  if(!el || el.tagName !== "INPUT" || el.type !== "checkbox") return;
+  var k = el.dataset.kind, id = el.dataset.id;
+  if(k === "region") toggleRegion(id);
+  else if(k === "c") toggleFeat("c:" + id);
+  else toggleFeat(k + ":" + id);
+});
+
+/* ---------- 缩放 / 平移 ---------- */
+var view = {x:0, y:0, w:VW, h:VH};
+function applyView(){
+  svg.setAttribute("viewBox", view.x.toFixed(1) + " " + view.y.toFixed(1) + " " +
+    view.w.toFixed(1) + " " + view.h.toFixed(1));
+}
+function resetView(){ view.x = 0; view.y = 0; view.w = VW; view.h = VH; applyView(); }
+function svgPt(ev){
+  var r = svg.getBoundingClientRect();
+  return [(ev.clientX-r.left)/r.width*view.w + view.x, (ev.clientY-r.top)/r.height*view.h + view.y];
+}
+svg.addEventListener("wheel", function(ev){
+  ev.preventDefault();
+  var pt = svgPt(ev), k = ev.deltaY > 0 ? 1.15 : 1/1.15;
+  var nw = Math.max(55, Math.min(VW, view.w*k)), nh = nw * VH / VW;
+  var rx = (pt[0]-view.x)/view.w, ry = (pt[1]-view.y)/view.h;
+  view.x = pt[0] - rx*nw; view.y = pt[1] - ry*nh; view.w = nw; view.h = nh;
+  applyView();
+}, {passive:false});
+
+var drag = null, dragMoved = false;
+svg.addEventListener("pointerdown", function(ev){
+  if(ev.button !== 0 && ev.pointerType === "mouse") return;
+  drag = {sx:ev.clientX, sy:ev.clientY, vx:view.x, vy:view.y};
+  dragMoved = false;
+});
+window.addEventListener("pointermove", function(ev){
+  if(!drag) return;
+  var r = svg.getBoundingClientRect();
+  var dx = (ev.clientX-drag.sx)/r.width*view.w, dy = (ev.clientY-drag.sy)/r.height*view.h;
+  if(Math.abs(ev.clientX-drag.sx) + Math.abs(ev.clientY-drag.sy) > 3) dragMoved = true;
+  if(dragMoved){ view.x = drag.vx - dx; view.y = drag.vy - dy; applyView(); }
+});
+window.addEventListener("pointerup", function(){ drag = null; });
+svg.addEventListener("dblclick", resetView);
+
+/* ---------- 工具 ---------- */
+$("btnResetView").addEventListener("click", resetView);
+$("btnAllCity").addEventListener("click", function(){
+  allCityOn = !allCityOn;
+  this.textContent = allCityOn ? "隐藏全国市界" : "显示全国市界";
+  renderAllCities();
+});
+$("btnClear").addEventListener("click", function(){
+  state.regions.clear(); state.feats.clear();
+  renderRegions(); renderFeats(); syncChecks();
+});
+$("btnLabels").addEventListener("click", function(){
+  state.labels = !state.labels;
+  this.textContent = state.labels ? "隐藏省名" : "显示省名";
+  drawLabels();
+});
+
+/* ---------- 启动 ---------- */
+drawLabels(); renderRegions(); renderFeats(); renderPanel(); resetView();
+})();
+</script>
+</body>
+</html>

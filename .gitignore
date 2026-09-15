@@ -1,0 +1,34 @@
+# ---- 原始数据 ----
+# 合计 11.2 MB，其中 ne_rivers.geojson 单文件即 7.0 MB，直接入库会让仓库体积失控。
+# 改为以 archive/rawdata-*.zip（3.56 MB）的形式提供，克隆后解压即可复现构建，
+# 详见 archive/README.md。data/ 目录由 build/fetch_*.py 生成。
+data/
+
+# ---- 构建中间产物 ----
+# geo.json / data.json 每次构建都会重新生成，且其内容已逐字段内嵌进成品 HTML。
+# 不入库的理由：二者合计约 870 KB，且与成品 HTML 重复；build.py 会校验二者与成品
+# 全等，所以只要成品在库中，中间产物随时可重建、无需版本化。
+build/out/
+
+# ---- 开发过程文件 ----
+# 调试脚本、探针脚本、历次截图。这些是排查问题时的一次性副产品，不具备复用价值。
+# 保留审计脚本（audit*.py / verify_fix.js / check_labels.js），它们是可复跑的验证工具。
+build/dev-scratch/
+build/shots/
+build/audit_shots/
+
+# ---- 运行截图（verify_fix.js 的输出目录）----
+build/inspect/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
