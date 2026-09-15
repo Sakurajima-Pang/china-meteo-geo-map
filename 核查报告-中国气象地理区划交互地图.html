@@ -67,9 +67,12 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   <h1>项目核查报告 · 中国气象地理区划交互地图</h1>
   <div class="sub">数据真实性核查 &nbsp;·&nbsp; 代码及技术方案评估</div>
   <div class="meta">
-    核查对象：<code>中国气象地理区划交互地图.html</code>（857.6 KB）及 <code>build/</code>、<code>data/</code> 全部源文件<br>
+    核查对象：<code>中国气象地理区划交互地图.html</code>（核查时为 <b>857.6 KB</b>；修复后现为 <b>864.8 KB</b>）及 <code>build/</code>、<code>data/</code> 全部源文件<br>
     核查日期：2026-09-15 &nbsp;|&nbsp; 核查方式：静态审计 + 构建产物逐字段比对 + 无头浏览器运行时验证 + 权威文献比对<br>
-    核查性质：<b>只读</b>（未修改任何项目文件；新增的核查脚本见文末）
+    核查性质：<b>只读</b>（未修改任何项目文件；新增的核查脚本见文末）<br>
+    <b>文档说明</b>：本报告记录的"发现的问题"以<b>核查当时（修复前）的状态</b>为准，故正文中的数据体积、截图路径等反映的是当时快照；
+    各项问题的<b>当前修复状态</b>见下方「问题修复内容状态」表。项目已于 2026-09-15 完成整理并入版本库，部分过程文件（调试脚本、截图目录）
+    已在整理阶段清理，正文中引用的相应路径为历史快照，不再存在于当前工作区。
   </div>
 </header>
 
@@ -90,8 +93,13 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
 </div>
 
 <div class="box info">
-  <b class="t">修复完成情况（2026-09-15 第二轮）</b>
+  <b class="t">修复完成情况（2026-09-15 第二轮修复 · 第三轮整理）</b>
   <p style="margin:0 0 8px">本报告列出的问题已逐项修复，并新增 <code>build/build.py</code> 统一构建入口与三道<b>构建门禁</b>（失败即终止构建），防止同类问题复发。修复后全部校验通过：内嵌数据与中间产物 12 个字段全等、运行时零报错、<b>山脉注记 100/100 落在自身范围内</b>（原 10 项越界）、<b>省级要素归属 0 项异常</b>（原 2 项）。</p>
+  <p style="margin:0 0 8px">修复后成品体积为 <b>864.8 KB</b>（其中内嵌几何数据 824.6 KB，占 95.4%）。项目随后完成整理并提交版本库
+  （<code>github.com/Sakurajima-Pang/china-meteo-geo-map</code>）：清理了 16 个调试/探查脚本与历次截图目录，
+  原始数据改以 <code>archive/rawdata-2026-09-15.zip</code> 归档提供，并为各脚本补充文档与注释。</p>
+  <p style="margin:0 0 8px"><b>关于本报告中的历史引用</b>：正文"发现的问题"各节保留核查当时的原始记录（含体积 <code>857.6 KB</code>、
+  截图路径 <code>build/shots/</code> 等），未作回溯改写；上述过程文件已在整理阶段清理，相关路径为历史快照。</p>
   <table style="margin:6px 0 0">
     <tr><th style="width:8%">问题</th><th style="width:46%">修复内容</th><th>状态</th></tr>
     <tr><td>1</td><td>嘉陵江、乌江、岷江、瓯江、钱塘江改回 Natural Earth 真实河道（434 / 380 / 61 / 65 / 82 点）；海河改回 Hai + Yongding 真实河道；北江、东江改回 Bei / Dong 真实河道并入珠江系统；删除对应手工折线。嘉陵江上游段（32.4°N 以北约 190 km）已补齐。页脚名单据实重写</td><td><span class="tag pass">已修复</span></td></tr>
@@ -102,7 +110,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
     <tr><td>6</td><td>页脚补披露：台湾省无地级界线（DataV 返回 404）、中国澳门 3 个堂区无边界、小型名山范围约 3 倍放大、GCJ-02 与 WGS-84 混用；面板对"点位列"与"面单元"分别说明；澳门无边界堂区在面板中标为"无边界数据"并禁用勾选</td><td><span class="tag pass">已修复</span></td></tr>
     <tr><td>7</td><td>河名标注改为按<b>累积弧长中点</b>定位（原按数组下标取中点）；珠江、长江另在数据层给定锚点。珠江标注由贵州黔南（106.67°E, 25.17°N）移至珠江三角洲（113.35°E, 23.10°N）</td><td><span class="tag pass">已修复</span></td></tr>
     <tr><td>8</td><td>澳门空几何堂区已处理（见问题 6）；山脉放大已在面板说明中复述；坐标基准已在页脚声明</td><td><span class="tag pass">已修复</span></td></tr>
-    <tr><td>工程</td><td>新增 <code>build.py</code> 单入口 + 三道构建门禁；删除 geo.py 死代码；输出顺序改为确定性排序；不再原地变异模块级常量；点位查找改用预建索引；岛礁坐标移入数据层；省份支持键盘操作并补 aria 属性；抓取脚本恢复 TLS 校验；16 个调试/探查脚本归档至 <code>build/dev-scratch/</code></td><td><span class="tag pass">已完成</span></td></tr>
+    <tr><td>工程</td><td>新增 <code>build.py</code> 单入口 + 三道构建门禁；删除 geo.py 死代码；输出顺序改为确定性排序；不再原地变异模块级常量；点位查找改用预建索引；岛礁坐标移入数据层；省份支持键盘操作并补 aria 属性；抓取脚本恢复 TLS 校验；16 个调试/探查脚本<b>已于整理阶段清理</b>（原先仅归档保留，后按版本库整洁要求删除）</td><td><span class="tag pass">已完成</span></td></tr>
   </table>
 </div>
 
@@ -169,7 +177,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   <li><span class="tag pass">通过</span>前端渲染依赖的字段无缺失：<code>info</code>、<code>pr</code>、<code>feat</code> 对 34 省全覆盖；<code>regionGeom</code> 无法解析的区划成员引用 <b>0 项</b>；无索引越界。</li>
   <li><span class="tag pass">通过</span><b>区划聚合完整性</b>：6 个跨区省（江苏 13、安徽 16、山东 16、河南 18、湖北 17、福建 9，合计 89 个地级单元）<b>全部被完整、无重复、无遗漏地划入</b>；34 省全部归入至少 1 个一级区划。</li>
   <li><span class="tag pass">通过</span>要素引用完整性：<code>feat</code> 中引用的山/河/湖 id 全部存在，<b>0 项悬空引用</b>；100 座山脉全部具备范围多边形（顶点数 4–14）；全部注记坐标落在中国国界范围内。</li>
-  <li><span class="tag pass">通过</span>离线自包含：<b>零外部资源引用</b>（已扫描全部 <code>src</code>/<code>href</code>），可在断网环境直接打开。857.6 KB 中 96% 为内嵌几何数据。</li>
+  <li><span class="tag pass">通过</span>离线自包含：<b>零外部资源引用</b>（已扫描全部 <code>src</code>/<code>href</code>），可在断网环境直接打开。核查时 857.6 KB 中约 96% 为内嵌几何数据（修复后 864.8 KB，数据 824.6 KB 占 95.4%）。</li>
 </ul>
 
 <h3>2.3 发现的问题</h3>
@@ -261,7 +269,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
 <div class="box warn">
   <b class="t"><span class="tag p1">P1 标注落点错误</span>问题 7 &nbsp;"珠江"名称被绘制在贵州省境内</b>
   <p>模板用「最长河段在<b>数组中的位置中点</b>」决定河名落点（<code>mi = Math.floor(len/4)*2</code>），对多段河流会失效。珠江被分为 3 段，最长段 90 个点、跨 103.04–114.70°E，其中点落在 <b>106.67°E, 25.17°N —— 贵州黔南一带</b>。</p>
-  <p><b>目视确认</b>：项目自带的截图 <code>build/shots/shot-14-zhujiang.png</code>（作者本人所摄）中，"珠江"二字明显压在贵州省境内。同类隐患：长江标注落在 103.85°E / 28.67°N（云南昭通金沙江段）。</p>
+  <p><b>目视确认</b>：项目自带的截图 <code>build/shots/shot-14-zhujiang.png</code>（作者本人所摄，该目录已在整理阶段清理）中，"珠江"二字明显压在贵州省境内。同类隐患：长江标注落在 103.85°E / 28.67°N（云南昭通金沙江段）。</p>
 </div>
 
 <div class="box info">
@@ -282,11 +290,11 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
 <tr><th style="width:24%">维度</th><th>评价</th></tr>
 <tr>
   <td>产物形态</td>
-  <td><b>合理且契合定位。</b>单文件 857.6 KB、零外部依赖，可离线分发、双击即用，非常适合"教学与演示"场景。代价是 96% 体积为几何数据，无法被浏览器增量缓存（若改为在线服务，应外置数据并启用 gzip/br）。</td>
+  <td><b>合理且契合定位。</b>单文件 857.6 KB（修复后 864.8 KB）、零外部依赖，可离线分发、双击即用，非常适合"教学与演示"场景。代价是约 96% 体积为几何数据，无法被浏览器增量缓存（若改为在线服务，应外置数据并启用 gzip/br）。</td>
 </tr>
 <tr>
   <td>几何压缩管线</td>
-  <td><b>设计良好。</b>Douglas-Peucker 简化（省 0.008°、市 0.018° 分级容差）+ 坐标放大 1000 倍取整编码 + 扁平数组存点 + 输出侧 <code>toFixed(1)</code>，把 34 省 + 475 市 + 29 条河压进 803 KB。<br>实现细节到位：DP 采用<b>迭代栈</b>而非递归（避免复杂海岸线爆栈）、<code>ring_area</code> 面积过滤剔除碎岛、整数化时做极点去重、内环（湖泊/飞地）保留并以 <code>fill-rule:evenodd</code> 正确处理。</td>
+  <td><b>设计良好。</b>Douglas-Peucker 简化（省 0.008°、市 0.018° 分级容差）+ 坐标放大 1000 倍取整编码 + 扁平数组存点 + 输出侧 <code>toFixed(1)</code>，把 34 省 + 475 市 + 29 条河压进约 800 KB 的整数几何。<br>实现细节到位：DP 采用<b>迭代栈</b>而非递归（避免复杂海岸线爆栈）、<code>ring_area</code> 面积过滤剔除碎岛、整数化时做极点去重、内环（湖泊/飞地）保留并以 <code>fill-rule:evenodd</code> 正确处理。</td>
 </tr>
 <tr>
   <td>投影与坐标</td>
@@ -354,7 +362,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
 <tr><td>8</td><td><code>template.html:317</code> 经验性 hack</td><td>以 <code>p.g.length &gt; 10</code>（几何数组长度）代理"省域是否复杂（岛屿多）"来切换小字号，属隐式约定，应改为显式字段或至少加注释。</td></tr>
 <tr><td>9</td><td><code>fetch_cities.py:6-8</code> 关闭 TLS 校验</td><td><code>check_hostname=False; verify_mode=CERT_NONE</code>。抓取公开数据风险有限，但属不良实践。另外 <code>TMPL[i % len(TMPL)]</code> 的重试会在两个 URL 间轮换，失败时难以定位到底哪个模板有问题。</td></tr>
 <tr><td>10</td><td>健壮性与可访问性</td><td><code>DATA_</code> 若损坏或字段缺失，<code>drawLabels</code>、<code>provTip</code> 等处会直接抛错且<b>无降级路径</b>；<code>&lt;svg&gt;</code> 缺少 <code>aria-describedby</code>；省份<strong>只能鼠标点击</strong>，键盘无法操作（无 <code>tabindex</code> / 键盘事件），不满足无障碍基本要求。</td></tr>
-<tr><td>11</td><td>工程卫生</td><td><code>build/</code> 遗留 <b>11 个调试文件</b>（<code>dbg.js</code>、<code>dbg2.js</code>、<code>dbg3.js</code>、<code>test_page.js</code>、<code>test_page2.js</code>、<code>test_page3.js</code>、<code>test_mtn.js</code>、<code>test_mtn2.js</code>、<code>test_river.js</code>、<code>final_shot.js</code>、<code>inspect.py</code>），约 500 行。<code>data/</code> 共 11.2 MB，其中 <code>ne_rivers.geojson</code> 占 7.1 MB 但仅用到极少数要素，建议裁剪或加入忽略规则。</td></tr>
+<tr><td>11</td><td>工程卫生</td><td>核查时 <code>build/</code> 遗留 <b>11 个调试文件</b>（<code>dbg.js</code>、<code>dbg2.js</code>、<code>dbg3.js</code>、<code>test_page.js</code>、<code>test_page2.js</code>、<code>test_page3.js</code>、<code>test_mtn.js</code>、<code>test_mtn2.js</code>、<code>test_river.js</code>、<code>final_shot.js</code>、<code>inspect.py</code>），约 500 行。<b>处置结果：连同 <code>dev-scratch/</code> 下的一次性探查脚本共 16 个文件，已于整理阶段全部删除</b>（保留 <code>audit*.py</code> / <code>audit_render.js</code> / <code>verify_fix.js</code> / <code>check_labels.js</code> 等可复跑的验证工具）。<code>data/</code> 共 11.2 MB，其中 <code>ne_rivers.geojson</code> 占 7.0 MB 但仅用到极少数要素 —— 现以 <code>archive/rawdata-2026-09-15.zip</code>（3.56 MB）归档形式入库，并已加入忽略规则；<b>裁剪本身仍未做</b>（低优先级，非错误）。</td></tr>
 </table>
 
 <h3>3.4 优化建议（按性价比排序）</h3>
@@ -385,7 +393,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   <li>页脚"数据源覆盖情况"改为脚本生成，杜绝文案与代码脱节。</li>
   <li>清理 11 个调试文件；修复死代码、原地变异、输出顺序不确定、O(n·m) 查找、硬编码岛礁坐标；<code>fetch_cities.py</code> 恢复 TLS 校验。</li>
   <li>无障碍：省份支持键盘操作、补充 <code>aria-</code> 属性、数据异常时降级提示而非白屏。</li>
-  <li>若未来需要在线部署，将几何数据外置为独立 JSON 并启用 gzip/br —— 当前 857 KB 中 822 KB 是数据，压缩后预计可降至 250 KB 量级。</li>
+  <li>若未来需要在线部署，将几何数据外置为独立 JSON 并启用 gzip/br —— 当前 864.8 KB 中 824.6 KB（95.4%）是数据，压缩后预计可降至 250 KB 量级。</li>
 </ol>
 
 <hr>
@@ -413,11 +421,15 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   <code>build/audit.py</code>（数据源与构建产物一致性，含 12 项字段比对）　·　<code>build/audit2.py</code>（空间关系交叉核查）<br>
   <code>build/audit3.py</code>（离线自包含性与构建链检查）　·　<code>build/audit_render.js</code>（无头浏览器运行时验证）<br>
   <code>build/verify_fix.js</code>（河名落点、键盘可达性、面板状态回归验证）<br>
-  渲染截图存于 <code>build/audit_shots/</code>。<br><br>
+  <code>build/audit_issues.py</code>（本报告 8 项问题的回归复核，把问题清单变成可重复执行的检查）<br>
+  渲染截图输出目录为 <code>build/audit_shots/</code>（运行 <code>audit_render.js</code> 时按需生成；已在整理阶段纳入忽略规则，不入库）。<br><br>
   <b>修复阶段新增的构建设施</b>：<code>build/build.py</code> —— 统一入口，按 <code>geo.py → content.py → assemble.py</code> 顺序执行，并内置三道门禁：<br>
   ① 每座山脉的注记点必须落在其自身示意范围内；② 省级要素清单中的每个要素必须与该省范围相交；③ 补充河流的"整条缺失"主张必须成立（该河英文名不得存在于 Natural Earth 的中国河流集合中）。<br><br>
   第二轮修复共改动 <code>build/geo.py</code>、<code>build/content.py</code>、<code>build/mtn_shapes.py</code>、<code>build/template.html</code>、<code>build/assemble.py</code>、<code>build/fetch_cities.py</code>、<code>build/fetch_rivers.py</code>，
-  并重新生成 <code>中国气象地理区划交互地图.html</code>（863.8 KB）。16 个原调试脚本与一次性探查脚本已归档至 <code>build/dev-scratch/</code>（未删除，可回溯）。
+  并重新生成 <code>中国气象地理区划交互地图.html</code>。<br>
+  <b>体积沿革</b>：核查时 857.6 KB → 第二轮修复后 863.8 KB → 补充文档与断言后 <b>864.8 KB</b>（当前）。<br>
+  <b>过程文件处置</b>：16 个调试/探查脚本与历次截图目录原仅归档保留，<b>已在 2026-09-15 第三轮整理阶段删除</b>，
+  以保证版本库整洁；如需回溯，可查阅版本库的早期提交。
 </footer>
 
 </div>
