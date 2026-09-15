@@ -87,9 +87,10 @@ button:active{transform:translateY(1px)}
 #gMeas text{font-family:var(--mono);font-size:9.5px;fill:#8a3308;font-weight:600;
   paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round}
 /* 经纬网。格线用中性灰绿以区别于行政区划的蓝，避免被误读为界线；
-   描边用白色「挖空」压在底图之上，使格线在陆地填充与海洋底色上都可读。 */
-#gGrid line{stroke:#5c7a6b;stroke-width:.7;stroke-opacity:.5}
-#gGrid line.g0{stroke-width:1.1;stroke-opacity:.72}      /* 整十度加粗 */
+   描边用白色「挖空」压在底图之上，使格线在陆地填充与海洋底色上都可读。
+   经线为 <line>、纬线为 <path>（圆锥投影下是圆弧，无法用直线表示），故两条都要设样式。 */
+#gGrid line,#gGrid path{stroke:#5c7a6b;stroke-width:.7;stroke-opacity:.5;fill:none}
+#gGrid line.g0,#gGrid path.g0{stroke-width:1.1;stroke-opacity:.72}   /* 整十度加粗 */
 #gGrid text{font-family:var(--mono);font-size:9px;fill:#3f5c4d;font-weight:600;
   paint-order:stroke;stroke:#f2f8f5;stroke-width:2.8;stroke-linejoin:round;stroke-opacity:.95}
 #gGrid text.g0{font-size:9.5px;fill:#2f4a3c}
@@ -226,8 +227,43 @@ function $(id){ return document.getElementById(id); }
 function mk(n, a){ var e = document.createElementNS(SVGNS, n); if(a) for(var k in a) e.setAttribute(k, a[k]); return e; }
 function txt(n, a, s){ var e = mk(n, a); e.textContent = s; return e; }
 
-/* ---------- 投影（墨卡托） ---------- */
-function merc(lng, lat){ return [lng*RAD, Math.log(Math.tan(Math.PI/4 + lat*RAD/2))]; }
+/* ---------- 投影（兰勃特等角圆锥 / Lambert conformal conic，双标准纬线） ----------
+   选型依据：气象行业的中纬度天气图底图标准投影。中国气象局与日本气象厅的
+   天气图底图均采用本投影，标准纬线取 30°N 与 60°N —— 这两条纬线上长度比恰为 1，
+   两线之间略缩、之外略放，在中纬度地区变形最小。详见页脚「数据来源与制图说明」。
+
+   与墨卡托的关键差别（会影响经纬网、逆投影与视图盒，改动时勿沿用旧假设）：
+     · 墨卡托的经线是竖直平行直线、纬线是水平直线，构成正交矩形网格；
+     · 兰勃特的经线是**自圆锥顶点发散的射线**，纬线是**以圆锥顶点为圆心的同心圆弧**。
+       本图经度范围 73–135.5°E、中央经线 105°E，故扇形张角达 44.7°，
+       且经线间距自南向北收窄（17.6°N 处 81.1 px → 53.8°N 处 45.5 px，比值 1.78）。
+       —— 这是本投影的固有特征，不是错误。 */
+
+/* 标准纬线（度）。30/60 为气象天气图底图约定值，组合得 n ≈ 0.7156。 */
+var LCC_LAT1 = 30, LCC_LAT2 = 60;
+/* 中央经线（度）。取 105°E 使扇形相对画面居中，且贴近中国国土的经度中心。 */
+var LCC_LNG0 = 105;
+
+/* 圆锥常数 n 与常数 F。
+   n = ln(cosφ₁·secφ₂) / ln[ tan(π/4+φ₂/2)·cot(π/4+φ₁/2) ]
+   双标准纬线时为上式；若 φ₁=φ₂（单标准纬线）则退化为 n = sinφ₁（此处不涉及）。
+   F = cosφ₁ · tanⁿ(π/4+φ₁/2) / n
+   ρ(φ) = F · cotⁿ(π/4+φ/2)   —— 该纬线的圆弧半径（投影平面单位）
+   x = ρ·sin[n(λ−λ₀)]，  y = ρ·cos[n(λ−λ₀)]
+   关于 y 的符号：本文件的 makeProj 把「投影 y 增大」直接映射为「屏幕 y 增大」（即向下），
+   ∵ screenY = oy + (p[1]−bounds.minY)·s。而 ρ 随纬度增大而减小，
+   故取 y = +ρ·cosθ 时，纬度越高 → y 越小 → 屏幕越靠上，符合「北在上」。
+   （曾误取 y = −ρ·cosθ 并以为「取负即可翻转」，实测导致整幅图南北倒置。） */
+var LCC_N = Math.log(Math.cos(LCC_LAT1*RAD) / Math.cos(LCC_LAT2*RAD)) /
+            Math.log(Math.tan(Math.PI/4 + LCC_LAT2*RAD/2) / Math.tan(Math.PI/4 + LCC_LAT1*RAD/2));
+var LCC_F = Math.cos(LCC_LAT1*RAD) * Math.pow(Math.tan(Math.PI/4 + LCC_LAT1*RAD/2), LCC_N) / LCC_N;
+
+/* 投影：经纬度 → 投影平面坐标（无量纲）。 */
+function lcc(lng, lat){
+  var rho = LCC_F / Math.pow(Math.tan(Math.PI/4 + lat*RAD/2), LCC_N);
+  var th  = LCC_N * (lng - LCC_LNG0) * RAD;
+  return [rho * Math.sin(th), rho * Math.cos(th)];
+}
 var MAIN_BB  = {lng:[73,135.5], lat:[17.6,53.8]};
 var INSET_BB = {lng:[104.5,125], lat:[2.5,24.5]};
 var VW = 1000, VH = 739;
@@ -242,37 +278,74 @@ var MAIN_LAT_MIN = 17.8;
    顶点多 = 海岸线曲折/岛屿多的省份（如浙江、福建、广东），用小字号避免标签压线。
    原以实现细节 p.g.length > 10 隐式代理，现改为显式常量并在此声明意图。 */
 var SMALL_LABEL_VERTS = 10;
-/* GRID_STEP：经纬网间距（度）。取 5° 是因为主图 73–135.5°E 在该间距下约 13 条经线、
-   17.6–53.8°N 约 8 条纬线，格距约 78 px —— 既不拥挤也不至于无法定位。
-   5 能被 10 整除，故整十度可用 line.g0 单独加粗形成主次两级。 */
+/* GRID_STEP：经纬网间距（度）。取 5° 是因为主图 73–135.5°E 在该间距下约 13–15 条经线、
+   17.6–53.8°N 约 8–9 条纬线，格距约 45–130 px（兰勃特下南北不等宽）——
+   既不拥挤也不至于无法定位。
+   5 能被 10 整除，故整十度可用 .g0 单独加粗形成主次两级。 */
 var GRID_STEP = 5;
 
+/* 求经纬度矩形在投影平面上的外接盒。
+   不能用「取四角投影后的 min/max」—— 对圆锥投影这是错的：纬线是向下凹的圆弧，
+   故 y 的最大值出现在**南边界的中央**而非端点；同理 x 的极值也未必落在角点。
+   故沿四条边界密集采样后取极值。采样步长取 1/200，实测与 1/2000 的差小于 1e-6
+   倍画面宽（即 < 0.001 px），足够精确而无需解析求导。 */
+function projBounds(bb){
+  var i, N = 200, t, p, x, y;
+  var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  function acc(lng, lat){
+    p = lcc(lng, lat); x = p[0]; y = p[1];
+    if(x < x0) x0 = x; if(x > x1) x1 = x;
+    if(y < y0) y0 = y; if(y > y1) y1 = y;
+  }
+  for(i = 0; i <= N; i++){
+    t = i/N;
+    acc(bb.lng[0] + (bb.lng[1]-bb.lng[0])*t, bb.lat[0]);
+    acc(bb.lng[0] + (bb.lng[1]-bb.lng[0])*t, bb.lat[1]);
+    acc(bb.lng[0], bb.lat[0] + (bb.lat[1]-bb.lat[0])*t);
+    acc(bb.lng[1], bb.lat[0] + (bb.lat[1]-bb.lat[0])*t);
+  }
+  return [x0, y0, x1, y1];
+}
+
+/* 正投影：经纬度 → 画面（viewBox）坐标。
+   返回闭包，闭包内固化该包围盒的缩放与居中偏移，故同一 bb 反复调用不重复计算。 */
 function makeProj(bb, vw, vh, pad){
-  var p0 = merc(bb.lng[0], bb.lat[0]), p1 = merc(bb.lng[1], bb.lat[1]);
-  var w = p1[0]-p0[0], h = p1[1]-p0[1];
-  var s = Math.min((vw-2*pad)/w, (vh-2*pad)/h);
+  var B = projBounds(bb);
+  var w = B[2] - B[0], h = B[3] - B[1];
+  var s = Math.min((vw - 2*pad)/w, (vh - 2*pad)/h);
   var ox = (vw - w*s)/2, oy = (vh - h*s)/2;
   return function(lng, lat){
-    var p = merc(lng, lat);
-    return [ox + (p[0]-p0[0])*s, oy + (p1[1]-p[1])*s];
+    var p = lcc(lng, lat);
+    return [ox + (p[0]-B[0])*s, oy + (p[1]-B[1])*s];
   };
 }
 var PM = makeProj(MAIN_BB, VW, VH, 6);
 
-/* ---------- 逆投影（屏幕像素 → 经纬度）----------
+/* ---------- 逆投影（画面坐标 → 经纬度）----------
    与 makeProj 共用同一组参数，故反算结果与正投影严格互逆。
    用于「显示经纬度」读数与「测距」取点：两者都需要把指针位置还原为地理坐标。
-   反墨卡托：lat = 2·atan(exp(y)) − π/2 （y 为墨卡托纵坐标，单位为弧度制的无量纲值）。 */
-var MERC0 = merc(MAIN_BB.lng[0], MAIN_BB.lat[0]);
+
+   反兰勃特（由 x, y 解 ρ, θ 再解 λ, φ）：
+     ρ  = √(x² + y²)            （x,y 为相对圆锥顶点的投影平面坐标）
+     θ  = atan2(x, y)            （与正投影的 x=ρsinθ, y=ρcosθ 对应）
+     λ  = λ₀ + θ/(n·RAD)
+     φ  = 2·[ atan( (F/ρ)^(1/n) ) − π/4 ] / RAD
+   注意 ρ 出现在分母，故 ρ=0（圆锥顶点）处无定义 —— 该点纬度已达 90°N，
+   远在本图范围之外，无需特判。 */
 function makeInv(bb, vw, vh, pad){
-  var p0 = merc(bb.lng[0], bb.lat[0]), p1 = merc(bb.lng[1], bb.lat[1]);
-  var w = p1[0]-p0[0], h = p1[1]-p0[1];
-  var s = Math.min((vw-2*pad)/w, (vh-2*pad)/h);
+  var B = projBounds(bb);
+  var w = B[2] - B[0], h = B[3] - B[1];
+  var s = Math.min((vw - 2*pad)/w, (vh - 2*pad)/h);
   var ox = (vw - w*s)/2, oy = (vh - h*s)/2;
   return function(x, y){
-    var mx = (x - ox)/s + p0[0];
-    var my = p0[1] + (oy + h*s - y)/s;
-    return [mx/RAD, (2*Math.atan(Math.exp(my)) - Math.PI/2)/RAD];
+    /* 先还原到「投影平面坐标」（与 lcc() 的输出同尺度） */
+    var px = (x - ox)/s + B[0];
+    var py = (y - oy)/s + B[1];
+    var rho = Math.sqrt(px*px + py*py);
+    var th  = Math.atan2(px, py);
+    var lng = LCC_LNG0 + th/(LCC_N*RAD);
+    var lat = (2*Math.atan(Math.pow(LCC_F/rho, 1/LCC_N)) - Math.PI/2)/RAD;
+    return [lng, lat];
   };
 }
 var INVM = makeInv(MAIN_BB, VW, VH, 6);
@@ -434,45 +507,146 @@ DATA_.p.forEach(function(p){
 });
 
 /* ---------- 经纬网 ----------
-   网格线按 GRID_STEP 生成，覆盖主图 bbox 向外取整后的范围。
-   线一律用到视图四角的外接矩形（view.x 等）而非 bbox 内 —— 缩放平移后仍需铺满画面，
-   否则拖到边缘会看到格线"断在画中"。故重绘在 applyView() 中触发。 */
+   兰勃特下的格线形状与墨卡托完全不同，必须分别处理：
+     · 经线是自圆锥顶点发散的**射线**，在本图范围内相对竖直最多倾斜 22.9°；
+     · 纬线是**以圆锥顶点为圆心的同心圆弧**，中央较两端下凹（低纬更明显）。
+   故格线不再能像墨卡托那样用一条 from-to 直线表示（经线仍可，纬线不可）。
+
+   生成范围以**主图数据包围盒** MAIN_BB 为准，不以视图四角反算 —— 原因见 drawGrid() 内注释。
+   裁剪范围取「视图矩形 ∪ 数据在画面上的范围」，保证缩放平移后格线仍铺满可视区。
+   故重绘在 applyView() 中触发。 */
 var gridOn = false;
+
+/* 把直线（过 a、b 两点）裁剪到视图矩形，返回 [x1,y1,x2,y2] 或 null。
+   用参数区间求交：对 x 与 y 各得一个 t 区间，取交。 */
+function clipLineToRect(ax, ay, bx, by, rx0, ry0, rx1, ry1){
+  var dx = bx-ax, dy = by-ay, t0 = 0, t1 = 1, t, tmp;
+  /* Liang–Barsky 的边界测试，逐条收缩参数区间 */
+  var P = [-dx, dx, -dy, dy];
+  var Q = [ax-rx0, rx1-ax, ay-ry0, ry1-ay];
+  for(var i = 0; i < 4; i++){
+    if(P[i] === 0){
+      if(Q[i] < 0) return null;          /* 平行且在外 */
+    }else{
+      t = Q[i]/P[i];
+      if(P[i] < 0){ if(t > t0) t0 = t; } /* 进入 */
+      else        { if(t < t1) t1 = t; } /* 离开 */
+      if(t0 > t1) return null;
+    }
+  }
+  return [ax + t0*dx, ay + t0*dy, ax + t1*dx, ay + t1*dy];
+}
+
 function drawGrid(){
   while(gGrid.firstChild) gGrid.removeChild(gGrid.firstChild);
   if(!gridOn) return;
   var vx0 = view.x, vy0 = view.y, vx1 = view.x + view.w, vy1 = view.y + view.h;
-  /* 反算当前视图四角对应的经纬度，据此决定要画哪些格线 */
-  var a = INVM(vx0, vy1), b = INVM(vx1, vy0);   /* a=左下, b=右上 */
-  var lng0 = Math.floor(a[0]/GRID_STEP)*GRID_STEP, lng1 = Math.ceil(b[0]/GRID_STEP)*GRID_STEP;
-  var lat0 = Math.floor(a[1]/GRID_STEP)*GRID_STEP, lat1 = Math.ceil(b[1]/GRID_STEP)*GRID_STEP;
-  var i, p, cls;
-  /* 经线：竖直线，x 由投影给出；两端延到视图外，保证铺满 */
+
+  /* 格线范围以**主图数据包围盒**为准，不以视图四角反算。
+     原因：兰勃特下内容是扇形，视图矩形的四角是空白区，在那些角落反算出的经度
+     可达 50°E / 155°E（远超数据 73–135.5°E），会画出十几条无用经线，
+     并把度标推到画面边缘之外。改用数据包围盒后格线只覆盖真正有内容的区域。 */
+  var lngMin = MAIN_BB.lng[0], lngMax = MAIN_BB.lng[1];
+  var latMin = MAIN_BB.lat[0], latMax = MAIN_BB.lat[1];
+
+  var lng0 = Math.floor(lngMin/GRID_STEP)*GRID_STEP, lng1 = Math.ceil(lngMax/GRID_STEP)*GRID_STEP;
+  var lat0 = Math.floor(latMin/GRID_STEP)*GRID_STEP, lat1 = Math.ceil(latMax/GRID_STEP)*GRID_STEP;
+  /* 纬度夹取到投影有意义的范围（避免 tan 在 90° 处溢出） */
+  if(lat0 < -85) lat0 = -85;
+  if(lat1 >  85) lat1 =  85;
+
+  /* 裁剪范围取「视图矩形 ∪ 数据在画面上的范围」：
+     复位时即数据范围；放大到局部时以视图为准，保证格线仍铺满可视区。 */
+  var dTL = PM(MAIN_BB.lng[0], MAIN_BB.lat[1]), dTR = PM(MAIN_BB.lng[1], MAIN_BB.lat[1]);
+  var dBL = PM(MAIN_BB.lng[0], MAIN_BB.lat[0]), dBR = PM(MAIN_BB.lng[1], MAIN_BB.lat[0]);
+  /* 数据包围盒在画面上的范围（供度标夹取用，避免标签飘到扇形外的空白区） */
+  var gx0 = Math.min(dTL[0], dBL[0]), gx1 = Math.max(dTR[0], dBR[0]);
+  var gy0 = Math.min(dTL[1], dTR[1]), gy1 = Math.max(dBL[1], dBR[1]);
+  var cx0 = vx0, cy0 = vy0, cx1 = vx1, cy1 = vy1;
+  if(gx0 < cx0) cx0 = gx0;
+  if(gy0 < cy0) cy0 = gy0;
+  if(gx1 > cx1) cx1 = gx1;
+  if(gy1 > cy1) cy1 = gy1;
+
+  var i, j, cls, seg, d, pts, p, step;
+
+  /* --- 经线：自圆锥顶点的射线。取该经线上两个投影点连成直线，
+         再裁剪到视图矩形。半径极大故直线化误差可忽略（见下方 pts 注释）。 --- */
   for(i = lng0; i <= lng1; i += GRID_STEP){
-    p = PM(i, 0);
-    cls = (i % (GRID_STEP * 2) === 0) ? "g0" : "";
-    gGrid.appendChild(mk("line", {"class":cls, x1:p[0].toFixed(1), y1:vy0.toFixed(1),
-      x2:p[0].toFixed(1), y2:vy1.toFixed(1)}));
-    /* 度标：经度标在画面底边内侧。数值随缩放变化，故每次重绘都要重新生成。
-       标号取绝对值并显式带 E，避免出现「-5°E」这类自相矛盾的读数。 */
-    gGrid.appendChild(txt("text", {"class":cls, x:p[0].toFixed(1), y:(vy1 - 4).toFixed(1),
-      "text-anchor":"middle"}, i + "°E"));
+    /* 经线在兰勃特下是严格直线（自圆锥顶点的射线），故取两点即可精确表示；
+       两端纬度取远超本图范围的值，保证射线足够长，裁剪后仍贯穿整个画面。 */
+    var pa = PM(i, -60), pb = PM(i, 80);
+    seg = clipLineToRect(pa[0], pa[1], pb[0], pb[1], cx0, cy0, cx1, cy1);
+    if(!seg) continue;
+    cls = (i % (GRID_STEP*2) === 0) ? "g0" : "";
+    gGrid.appendChild(mk("line", {"class":cls, x1:seg[0].toFixed(1), y1:seg[1].toFixed(1),
+      x2:seg[2].toFixed(1), y2:seg[3].toFixed(1)}));
+    /* 度标：沿**数据南缘**排布（该经线与 latMin 的交点）。 */
+    var lp = PM(i, latMin);
+    if(lp[1] >= cy0 - 2 && lp[1] <= cy1 + 2){
+      /* 夹取到画面内，保证任何缩放/平移状态下都不会画出画面之外。
+         为什么用画面边界而不是内容边界：内容 bbox 是**省界几何**的极值，
+         在纬度 17.6°N 一带真实省界只到 108–110°E（海南岛），而格线是沿 MAIN_BB 的
+         73–135.5°E 铺开的 —— 两者本就不同源，不能用后者约束前者。
+         若夹到内容边界，70–85°E 与 125–140°E 这 10 个度标会被挤到同一条竖线上互相叠压，
+         反而不可读。实测（build/dev-scratch/geom.js）：不夹取时 24 个度标全部落在
+         0≤x≤1000、0≤y≤739 的画面内，说明本投影下度标本就不需要夹取。 */
+      var lx = Math.max(vx0 + 12, Math.min(vx1 - 12, lp[0]));
+      gGrid.appendChild(txt("text", {"class":cls, x:lx.toFixed(1), y:(lp[1] + 11).toFixed(1),
+        "text-anchor":"middle"}, i + "°E"));
+    }
   }
-  /* 纬线：水平线；墨卡托下纬度间距不等，故 y 逐条投影求得，不可等分 */
+
+  /* --- 纬线：以圆锥顶点为圆心的圆弧。用折线逼近：
+         先按经度采样成点串，再逐段裁剪到裁剪矩形。
+         半径虽大（画面尺度数的倍），但圆弧下凹量达 55–95 px，不可用直线近似。 --- */
   for(i = lat0; i <= lat1; i += GRID_STEP){
-    p = PM(0, i);
-    cls = (i % (GRID_STEP * 2) === 0) ? "g0" : "";
-    gGrid.appendChild(mk("line", {"class":cls, x1:vx0.toFixed(1), y1:p[1].toFixed(1),
-      x2:vx1.toFixed(1), y2:p[1].toFixed(1)}));
-    gGrid.appendChild(txt("text", {"class":cls, x:(vx0 + 4).toFixed(1), y:(p[1] - 3).toFixed(1),
-      "text-anchor":"start"}, i + "°N"));
+    cls = (i % (GRID_STEP*2) === 0) ? "g0" : "";
+    /* 采样范围覆盖数据经度并向外多留若干格，保证圆弧两端伸出裁剪框后被裁掉 */
+    step = GRID_STEP/8;
+    pts = [];
+    for(j = lng0 - 4*GRID_STEP; j <= lng1 + 4*GRID_STEP; j += step){
+      pts.push(PM(j, i));
+    }
+    /* 相邻采样点连成短线段，逐段裁剪后拼成一个 path（跨越裁剪框外的部分自然断开） */
+    d = "";
+    for(j = 1; j < pts.length; j++){
+      seg = clipLineToRect(pts[j-1][0], pts[j-1][1], pts[j][0], pts[j][1],
+                           cx0, cy0, cx1, cy1);
+      if(!seg) continue;
+      d += (d ? "L" : "M") + seg[0].toFixed(1) + " " + seg[1].toFixed(1) +
+           "L" + seg[2].toFixed(1) + " " + seg[3].toFixed(1);
+    }
+    if(!d) continue;
+    gGrid.appendChild(mk("path", {"class":cls, d:d}));
+    /* 纬度度标：贴**数据西缘**。圆弧是弯的，故须在该纬线上逐点找最接近西缘的点，
+       不能用中央经线处的 y 代替 —— 那样在高纬会明显偏移。
+       夹取同经度标：只保证不越出画面（理由见上方经度标的注释）。
+       注意**纬度方向**也不夹到内容边界：55°N 的弧线在 MAIN_BB 北缘处 y≈28，
+       已高于省界 bbox 顶（97.8），但那里正对黑龙江以北，是合法的空白区。 */
+    var best = null, bestd = Infinity, anchor = PM(lngMin, i);
+    for(j = 0; j <= 60; j++){
+      p = PM(lngMin - 3*GRID_STEP + (lngMax - lngMin + 6*GRID_STEP)*j/60, i);
+      var dd = Math.abs(p[0] - anchor[0]);
+      if(dd < bestd){ bestd = dd; best = p; }
+    }
+    if(best){
+      var ly = Math.max(vy0 + 10, Math.min(vy1 - 6, best[1] - 3));
+      var lx2 = Math.max(vx0 + 12, Math.min(vx1 - 12, best[0] - 5));
+      gGrid.appendChild(txt("text", {"class":cls, x:lx2.toFixed(1), y:ly.toFixed(1),
+        "text-anchor":"end"}, i + "°N"));
+    }
   }
 }
 
 /* ---------- 南海诸岛附图 ---------- */
+/* 附图沿用主图同一投影（兰勃特）。附图范围 2.5–24.5°N 位于标准纬线（30/60°N）以南，
+   该处长度比约 1.14（即略有放大）—— 但附图只作「南海诸岛在我国版图内的大致位置」
+   示意，不作量测，且同为兰勃特后附图与主图的形状风格一致。此点已在页脚披露。 */
 (function(){
-  var p0 = merc(INSET_BB.lng[0], INSET_BB.lat[0]), p1 = merc(INSET_BB.lng[1], INSET_BB.lat[1]);
-  var ratio = (p1[0]-p0[0]) / (p1[1]-p0[1]);
+  /* 宽高比同样由 projBounds 求得（不能用四角，理由见 projBounds 注释） */
+  var B = projBounds(INSET_BB);
+  var ratio = (B[2]-B[0]) / (B[3]-B[1]);
   var IW = 170, IH = Math.round(IW / ratio);
   var IX = VW - IW - 12, IY = VH - IH - 12;
   /* clipPath 在元素自身变换后的用户坐标系中解析，故使用局部坐标 */
