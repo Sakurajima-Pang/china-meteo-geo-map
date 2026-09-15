@@ -65,7 +65,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   <h1>项目核查报告 · 中国气象地理区划交互地图</h1>
   <div class="sub">数据真实性核查 &nbsp;·&nbsp; 代码及技术方案评估</div>
   <div class="meta">
-    核查对象：<code>中国气象地理区划交互地图.html</code>（现 <b>867.8 KB</b>，内嵌数据 844.4 KB）及 <code>build/</code>、<code>data/</code> 全部源文件<br>
+    核查对象：<code>中国气象地理区划交互地图.html</code>（现 <b>886.4 KB</b>，内嵌数据 824.7 KB）及 <code>build/</code>、<code>data/</code> 全部源文件<br>
     首次核查：2026-09-15 &nbsp;|&nbsp; 最近复核：2026-09-15（随项目整理与修复同步更新）<br>
     核查方式：静态审计 + 构建产物逐字段比对 + 无头浏览器运行时验证 + 权威文献比对<br>
     <b>文档性质</b>：本报告只记录<b>截至最近复核时仍然成立的事实与仍待处理的事项</b>。
@@ -199,7 +199,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
 <tr><th style="width:24%">维度</th><th>评价</th></tr>
 <tr>
   <td>产物形态</td>
-  <td><b>合理且契合定位。</b>单文件 886.4 KB、零外部依赖，可离线分发、双击即用，非常适合"教学与演示"场景。代价是约 97% 体积为几何数据，无法被浏览器增量缓存（若改为在线服务，应外置数据并启用 gzip/br）。</td>
+  <td><b>合理且契合定位。</b>单文件 886.4 KB、零外部依赖，可离线分发、双击即用，非常适合"教学与演示"场景。代价是约 93% 体积为几何数据，无法被浏览器增量缓存（若改为在线服务，应外置数据并启用 gzip/br）。</td>
 </tr>
 <tr>
   <td>几何压缩管线</td>
@@ -272,7 +272,7 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   项目曾出现"多余一个括号 → 整页空白，而构建仍报全部通过"的情况，故将 JS 语法纳入构建期强制检查。</span><br><br>
   <b>本报告维护约定</b>：只记录<b>仍然成立的事实</b>与<b>仍待处理的事项</b>。已修复的问题在修复时即从本报告移除，
   同时以构建门禁或回归脚本固化，避免文档与实际状态失步。<br>
-  <b>当前体积</b>：867.8 KB（内嵌数据 844.4 KB，占 97.3%）。
+  <b>当前体积</b>：886.4 KB（内嵌数据 824.7 KB，占 93.0%）。
 </footer>
 
 </div>
