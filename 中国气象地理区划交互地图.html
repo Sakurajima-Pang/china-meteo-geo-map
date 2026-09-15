@@ -53,6 +53,39 @@ button:hover{background:var(--accent-s);border-color:var(--accent);color:var(--a
 button:active{transform:translateY(1px)}
 .svgbox{position:relative;flex:1;background:linear-gradient(180deg,#f9fcff,#e9f3fe);min-height:0}
 #map{display:block;width:100%;height:auto;touch-action:none;user-select:none}
+/* 测距模式下禁用省份指针反馈与文本选择，避免与折线绘制抢事件 */
+.svgbox.measuring #map{cursor:crosshair}
+.svgbox.measuring .pv{cursor:crosshair}
+/* 坐标读数：默认跟随指针；不跟随（触屏）时固定在左下角 */
+.coord{position:absolute;left:10px;top:10px;z-index:22;pointer-events:none;
+  background:rgba(20,38,60,.9);color:#fff;padding:5px 10px;border-radius:7px;
+  font:12px/1.4 var(--mono);letter-spacing:.2px;white-space:nowrap;
+  box-shadow:0 4px 14px rgba(16,45,80,.22);opacity:0;transition:opacity .12s}
+.coord.on{opacity:1}
+.coord b{color:#8fc4ff;font-weight:600}
+.coord i{font-style:normal;color:#a9c4e0;margin-left:6px}
+/* 测距面板：贴右下角会压住南海诸岛附图，故靠上放置（附图高约 24% 画布高度） */
+.meas{position:absolute;right:10px;top:10px;z-index:21;max-width:290px;
+  background:rgba(255,255,255,.96);border:1px solid var(--line2);border-radius:10px;
+  box-shadow:0 6px 20px rgba(31,90,155,.16);font-size:12px;overflow:hidden}
+.meas-hd{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel2);
+  border-bottom:1px solid var(--line);color:var(--ink2);font-weight:700;font-size:11.5px}
+.meas-hd .clr{margin-left:auto;cursor:pointer;color:var(--accent-d);font-weight:600}
+.meas-bd{padding:7px 10px;max-height:190px;overflow-y:auto}
+.meas-row{display:flex;gap:8px;color:var(--ink2);line-height:1.75;font-family:var(--mono);font-size:11.5px}
+.meas-row em{font-style:normal;color:var(--ink3);min-width:34px;flex:none}
+.meas-row s{text-decoration:none;color:var(--accent-d);font-weight:600;margin-left:auto}
+.meas-ft{padding:6px 10px;border-top:1px solid var(--line);background:var(--panel2);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-size:11.5px;color:var(--ink2)}
+.meas-ft b{font-size:14px;color:var(--accent-d);font-family:var(--mono)}
+/* 测距折线图层 */
+#gMeas path{fill:none;stroke:#c2410c;stroke-width:2;stroke-linecap:round;
+  stroke-linejoin:round;stroke-opacity:.92}
+#gMeas path.ghost{stroke:#ea8a3a;stroke-width:1.4;stroke-dasharray:4 3;stroke-opacity:.75}
+#gMeas circle{fill:#fff;stroke:#c2410c;stroke-width:1.8}
+#gMeas text{font-family:var(--mono);font-size:9.5px;fill:#8a3308;font-weight:600;
+  paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round}
 .hint{padding:7px 14px;font-size:11.5px;color:var(--ink3);border-top:1px solid var(--line);
   background:var(--panel2);border-radius:0 0 14px 14px}
 .pv{fill:#cfe3f8;stroke:#ffffff;stroke-width:.9;transition:fill .12s}
@@ -139,6 +172,9 @@ footer b{color:var(--ink2)}
       <div class="legend" id="legend"></div>
       <div class="tools">
         <button id="btnAllCity" type="button">显示全国市界</button>
+        <button id="btnCoord" type="button" aria-pressed="false">显示经纬度</button>
+        <button id="btnMeasure" type="button" aria-pressed="false">测距</button>
+        <button id="btnMeasureClear" type="button">清除测距</button>
         <button id="btnResetView" type="button">复位视图</button>
         <button id="btnClear" type="button">清空标注</button>
         <button id="btnLabels" type="button">隐藏省名</button>
@@ -148,8 +184,10 @@ footer b{color:var(--ink2)}
       <svg id="map" xmlns="http://www.w3.org/2000/svg" role="img"
            aria-label="中国行政区划与一级气象地理区划地图"></svg>
       <div id="tip"></div>
+      <div class="coord" id="coord" aria-live="polite"></div>
+      <div class="meas" id="meas" hidden></div>
     </div>
-    <div class="hint">悬停省份查看信息 · 单击省份在右侧展开区划与要素 · 「显示全国市界」可查看省以下各级行政区 · 滚轮缩放 / 拖拽平移 / 双击复位</div>
+    <div class="hint">悬停省份查看信息 · 单击省份在右侧展开区划与要素 · 「显示全国市界」可查看省以下各级行政区 · 滚轮缩放 / 拖拽平移 / 双击复位 · 「显示经纬度」实时读出指针坐标 · 「测距」可在图上连续取点量算距离（Esc 退出、Backspace 删末点、双击结束）</div>
   </section>
 
   <aside class="card panel">
@@ -165,8 +203,9 @@ footer b{color:var(--ink2)}
     2. <b>一级气象地理区划</b>：区划名称、数量（11 个）及所辖范围文字表述依据《中国气象地理区划手册》；并参照中国气象局 2021 年印发的《气象地理区划规范》《国家级气象服务产品地理用语业务规定》——后者将黄淮、江淮、江南、江汉等列为"特定区域区划"，将省区为主的 10 个大区列为"一级地区区划"。<br>
     3. <b>河流</b>：河道中心线取自 Natural Earth 公共领域数据集的河道中心线图层（WGS-84 坐标系）；同一河流被拆散的碎段按<b>端点走向自动拼接</b>为连续河道。经逐条回查原始数据，确需以简化线补充的只有：<b>整条缺失的河流</b>（南渡江），与<b>干流中的断开段</b>（淮河下游 116.5°E 以东、长江河口段 119.6°E 以东、珠江干流武宣—梧州段、岷江松潘—乐山段、瓯江与钱塘江的入海段、汉江白河—丹江口段、鸭绿江丹东—宽甸段）。珠江的西江、北江、东江在源数据中是独立河道，本图按既定做法作为独立线段并入珠江系统绘制，故珠江呈现为多条相接线段。<b>山脉</b>：山系不存在法定界线，本图按各山系的<b>真实走向</b>（东北—西南、西北—东南、东西、南北等）与已知分布范围绘制为<b>示意范围多边形</b>，用以表达延展方向与大致幅员；面积较小的名山（如泰山、黄山）取山体主体范围并作了约 3 倍线性放大以保证可读性，<b>故其范围不可用于量测</b>。<b>湖泊</b>为按已知点位标注的示意注记，不含面状水域边界。<br>
     4. <b>界线精度说明</b>：一级气象地理区划的原生界线以黄河、淮河、长江、南岭等自然地理线为界，<b>本图按地级市（直辖市、特别行政区按区）整体聚合绘制，属近似范围</b>；跨区划的地级市按主体范围归并（如江苏淮安、盐城归入江淮地区，南京归入江南地区）。<b>须特别说明：跨区划省份的"城市级归属"在公开文献中并无权威版本</b>——《中国气象地理区划手册》只给出到省级与自然地理线级别的文字描述，本图的城市级切分系依据这些自然地理线所作的<b>推断性细化</b>，与各区域文字定义中的表述可能存在出入（例如山东一省按《手册》分属华北南部与黄淮北部，本图据此取南北分界，故泰安、淄博等市的实际市域跨越该界线）。精确界线请以中国气象局发布的气象地理区划图为准。<br>
-    5. <b>坐标基准</b>：行政区划为 GCJ-02，河道中心线为 WGS-84，两者存在约 300–600 m 的系统性偏移；在本图比例（主图约 21 像素/经度）下约合 0.1 像素，肉眼不可见，但不应用于高精度量测。<br>
-    6. 本页面为教学与演示用途的示意图，不作为权威地图或气象业务依据使用。
+    5. <b>坐标基准</b>：行政区划为 GCJ-02，河道中心线为 WGS-84，两者存在约 300–600 m 的系统性偏移；在本图比例（主图约 21 像素/经度）下约合 0.1 像素，肉眼不可见。页面「显示经纬度」读出的是<b>画面投影坐标反算所得、按 WGS-84 表述</b>的数值；由于底图本身为 GCJ-02，该读数与天地图、GPS 等 WGS-84 标准值之间存在上述量级的偏移，<b>不可用于高精度测绘或定位</b>。<br>
+    6. <b>测距工具</b>：距离采用<b>球面大圆（Haversine）公式</b>按地球平均半径 6371.0088 km 计算，结果以千米表示；本图在跨数十个经度时平面距离误差显著，故未采用投影平面距离。但测点由<b>屏幕坐标反算</b>，其精度受限于画面比例（主图约 21 像素/经度，即约 5 km/像素）与上述坐标基准偏移，<b>仅用于数量级估算</b>，不可作为业务量算依据。折线上的分段与总距离亦未计入地形起伏。<br>
+    7. 本页面为教学与演示用途的示意图，不作为权威地图或气象业务依据使用。
   </div>
 </footer>
 
@@ -207,6 +246,47 @@ function makeProj(bb, vw, vh, pad){
   };
 }
 var PM = makeProj(MAIN_BB, VW, VH, 6);
+
+/* ---------- 逆投影（屏幕像素 → 经纬度）----------
+   与 makeProj 共用同一组参数，故反算结果与正投影严格互逆。
+   用于「显示经纬度」读数与「测距」取点：两者都需要把指针位置还原为地理坐标。
+   反墨卡托：lat = 2·atan(exp(y)) − π/2 （y 为墨卡托纵坐标，单位为弧度制的无量纲值）。 */
+var MERC0 = merc(MAIN_BB.lng[0], MAIN_BB.lat[0]);
+function makeInv(bb, vw, vh, pad){
+  var p0 = merc(bb.lng[0], bb.lat[0]), p1 = merc(bb.lng[1], bb.lat[1]);
+  var w = p1[0]-p0[0], h = p1[1]-p0[1];
+  var s = Math.min((vw-2*pad)/w, (vh-2*pad)/h);
+  var ox = (vw - w*s)/2, oy = (vh - h*s)/2;
+  return function(x, y){
+    var mx = (x - ox)/s + p0[0];
+    var my = p0[1] + (oy + h*s - y)/s;
+    return [mx/RAD, (2*Math.atan(Math.exp(my)) - Math.PI/2)/RAD];
+  };
+}
+var INVM = makeInv(MAIN_BB, VW, VH, 6);
+
+/* ---------- 球面距离（Haversine）----------
+   本图主图横跨约 62 个经度，用平面欧氏距离会产生显著误差
+   （北纬 40° 处 1° 经度实际约 85 km，而非赤道的 111 km），故必须用大圆距离。
+   地球平均半径取 IUGG 推荐的 6371.0088 km（此为约定值，非实测值）。 */
+var EARTH_R = 6371.0088;
+function haversine(a, b){
+  var dLat = (b[1]-a[1])*RAD, dLng = (b[0]-a[0])*RAD;
+  var s1 = Math.sin(dLat/2), s2 = Math.sin(dLng/2);
+  var t = s1*s1 + Math.cos(a[1]*RAD)*Math.cos(b[1]*RAD)*s2*s2;
+  return 2*EARTH_R*Math.asin(Math.min(1, Math.sqrt(t)));
+}
+/* 距离的表达方式随量级切换：<1 km 用米（避免出现 0.3 这种难读的读数） */
+function fmtDist(km){
+  if(km < 1) return Math.round(km*1000) + " m";
+  if(km < 10) return km.toFixed(2) + " km";
+  if(km < 100) return km.toFixed(1) + " km";
+  return Math.round(km) + " km";
+}
+/* 经纬度格式化：半球后缀显式写出，避免只看数值时误判南北半球 */
+function fmtLL(lng, lat){
+  return lng.toFixed(2) + "°E " + lat.toFixed(2) + "°N";
+}
 
 /* ---------- 几何 → 路径 ---------- */
 function ringPath(flat, P, close){
@@ -301,9 +381,11 @@ var gMark  = mk("g", {id:"gMark", "pointer-events":"none"});
 var gReg   = mk("g", {id:"gReg", "pointer-events":"none"});
 var gRText = mk("g", {id:"gRText", "pointer-events":"none"});
 var gLabel = mk("g", {id:"gLabel", "pointer-events":"none"});
+var gMeas  = mk("g", {id:"gMeas", "pointer-events":"none"});
 var gInset = mk("g", {id:"gInset", "pointer-events":"none"});
-[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText,gLabel,gInset].forEach(function(g){ gRoot.appendChild(g); });
+[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText,gLabel,gMeas,gInset].forEach(function(g){ gRoot.appendChild(g); });
 svg.appendChild(gRoot);
+/* gMeas 不挂 clipMain：测距折线在缩放态下可能短暂越出画面，裁剪会造成线段"闪烁消失" */
 [gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach(function(g){ g.setAttribute("clip-path","url(#clipMain)"); });
 
 /* ---------- 省级底图 ---------- */
@@ -321,7 +403,7 @@ DATA_.p.forEach(function(p){
   el.addEventListener("mouseenter", function(e){ provTip(p, e); });
   el.addEventListener("mousemove", moveTip);
   el.addEventListener("mouseleave", hideTip);
-  el.addEventListener("click", function(){ if(dragMoved) return; selectProvince(p.a); });
+  el.addEventListener("click", function(){ if(dragMoved || measOn) return; selectProvince(p.a); });
   /* 键盘可达：Tab 聚焦后回车/空格选中，聚焦时同样弹出提示 */
   el.addEventListener("focus", function(){
     var r = el.getBoundingClientRect();
@@ -391,6 +473,9 @@ function moveTip(e){
   var r = svgbox.getBoundingClientRect();
   var x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
   if(x > r.width - 250) x = e.clientX - r.left - 258;
+  /* 坐标读数固定在左上角，提示框若与之重叠就改到指针上方，
+     否则悬停省份时读数会被提示框完全遮住（实测如此）。 */
+  if(coordOn && x < 250 && y < 62) y = e.clientY - r.top + 74;
   if(y > r.height - 96) y = e.clientY - r.top - 92;
   tip.style.left = x + "px"; tip.style.top = y + "px";
 }
@@ -430,7 +515,7 @@ function drawCities(){
     });
     el.addEventListener("mousemove", moveTip);
     el.addEventListener("mouseleave", hideTip);
-    el.addEventListener("click", function(ev){ ev.stopPropagation(); if(!dragMoved) toggleFeat("c:" + c.a); });
+    el.addEventListener("click", function(ev){ ev.stopPropagation(); if(!dragMoved && !measOn) toggleFeat("c:" + c.a); });
     gCity.appendChild(el);
   });
 }
@@ -741,11 +826,17 @@ var view = {x:0, y:0, w:VW, h:VH};
 function applyView(){
   svg.setAttribute("viewBox", view.x.toFixed(1) + " " + view.y.toFixed(1) + " " +
     view.w.toFixed(1) + " " + view.h.toFixed(1));
+  if(measPts.length) renderMeas();   /* 折线与里程标注以 viewBox 坐标存储，缩放后须重绘 */
+  if(coordNeed) refreshCoord();
 }
 function resetView(){ view.x = 0; view.y = 0; view.w = VW; view.h = VH; applyView(); }
 function svgPt(ev){
   var r = svg.getBoundingClientRect();
   return [(ev.clientX-r.left)/r.width*view.w + view.x, (ev.clientY-r.top)/r.height*view.h + view.y];
+}
+function svgPtToLL(ev){
+  var p = svgPt(ev);
+  return INVM(p[0], p[1]);
 }
 svg.addEventListener("wheel", function(ev){
   ev.preventDefault();
@@ -762,16 +853,51 @@ svg.addEventListener("pointerdown", function(ev){
   drag = {sx:ev.clientX, sy:ev.clientY, vx:view.x, vy:view.y};
   dragMoved = false;
 });
+/* 测距模式下的「点击取点」必须与「选省份」互斥。
+   省份 path 各自绑了 click 处理，事件顺序是先目标（path）再冒泡到 svg，
+   因此仅在 svg 上判断 measOn 拦不住：落点会成功，而右侧面板同时被打开。
+   但这里**不能用 stopPropagation**：在 svg 的捕获阶段截断，会把同一 svg 上
+   冒泡阶段的 pointerup 监听器（也就是下面的取点逻辑）一并掐掉 ——
+   实测结果是"测距模式完全失效、一个点都落不下"。
+   正确做法是让事件照常传播，改为**在省份/城市处理器里查询 measOn** 来让路。 */
+/* 取点的坐标与落点必须一致：pointerdown 只记录起点，真正落点到 pointerup 且判定位移 <3 px。
+   否则拖拽平移时会在松手处留下一个测点，且用户无从察觉。 */
+svg.addEventListener("pointerup", function(ev){
+  if(dragMoved || !measOn) return;
+  if(ev.pointerType === "mouse" && ev.button !== 0) return;
+  var ll = svgPtToLL(ev);
+  addMeasPoint(ll[0], ll[1]);
+  LL_LAST = ll;
+});
+/* 双击 = 结束测距并清空。
+   为什么用浏览器的 dblclick 事件而不自己按时间间隔推断：dblclick 由浏览器按系统
+   双击间隔判定，是权威信号；自行用「两次 pointerup 相隔 <400 ms」判双击，会把使用者
+   连续快速取点的正常操作误判成结束（本项曾据此实现，实测连点 3 个点就再也落不下去）。
+   dblclick 之前必然先到两次 pointerup，故折线上会多出两个点 —— 一并丢弃即可。 */
+svg.addEventListener("dblclick", function(ev){
+  if(!measOn){ resetView(); return; }
+  ev.preventDefault();
+  clearMeas();
+  setMeasure(false);
+});
 window.addEventListener("pointermove", function(ev){
+  /* 坐标读数：先于拖拽判断更新，保证平移时读数同步。
+     测距模式下不更新读数面板（此时更该看的是测点里程），避免两者互相遮蔽。 */
+  if(coordOn && !measOn && (ev.target === svg || (svg.contains(ev.target) && !drag))){
+    var cl = svgPtToLL(ev);
+    curLL = cl; coordNeed = true;
+    setCoordText(cl[0], cl[1]);
+    coordEl.classList.add("on");
+  }
   if(!drag) return;
   var r = svg.getBoundingClientRect();
   var dx = (ev.clientX-drag.sx)/r.width*view.w, dy = (ev.clientY-drag.sy)/r.height*view.h;
   if(Math.abs(ev.clientX-drag.sx) + Math.abs(ev.clientY-drag.sy) > 3) dragMoved = true;
   if(dragMoved){ view.x = drag.vx - dx; view.y = drag.vy - dy; applyView(); }
+  if(measOn) updateRubber(ev.clientX, ev.clientY);
 });
 window.addEventListener("pointerup", function(){ drag = null; });
-svg.addEventListener("dblclick", resetView);
-
+svg.addEventListener("pointerleave", function(){ if(coordOn) hideCoord(); });
 /* ---------- 工具 ---------- */
 $("btnResetView").addEventListener("click", resetView);
 $("btnAllCity").addEventListener("click", function(){
@@ -787,6 +913,139 @@ $("btnLabels").addEventListener("click", function(){
   state.labels = !state.labels;
   this.textContent = state.labels ? "隐藏省名" : "显示省名";
   drawLabels();
+});
+
+/* ---------- 经纬度读数 ----------
+   数据源是画面（viewBox）坐标，不是屏幕像素：viewBox 随缩放平移变化，
+   而 svgPt() 已把 clientX/Y 换算到 viewBox 坐标系，故缩放后读数依然正确。
+   读数超出主图包围盒时仍照常显示并加注，避免使用者把它当成底图上的有效位置。 */
+var coordOn = false, coordEl = $("coord");
+var curLL = null, coordNeed = false;   /* 拖拽平移时用缓存的最后指针位置重算读数 */
+function setCoordText(lng, lat){
+  var out = (lng < MAIN_BB.lng[0] || lng > MAIN_BB.lng[1] ||
+             lat < MAIN_BB.lat[0] || lat > MAIN_BB.lat[1]);
+  coordEl.innerHTML = "<b>WGS-84</b> " + fmtLL(lng, lat) + (out ? ' <i>（图外）</i>' : '');
+}
+function hideCoord(){ coordNeed = false; coordEl.classList.remove("on"); }
+/* 供 applyView() 复用：视图变化后用同一指针位置重算读数（拖拽时指针未必再移动） */
+function refreshCoord(){
+  if(!curLL) return;
+  setCoordText(curLL[0], curLL[1], true);
+  coordEl.classList.add("on");
+}
+
+/* ---------- 测距 ----------
+   交互：进入测距模式后单击依次落点，按 Haversine 累加分段与总距离。
+   折线的分段里程标注只在落点/缩放/删点时重绘，避免每次指针移动都重建整条路径。 */
+var measOn = false, measPts = [], measTotal = 0, measEl = $("meas");
+var LL_LAST = null;   /* 上一次落点，供里程与调试使用 */
+
+function measPanelHTML(){
+  var rows = "", i, seg, lng, lat;
+  for(i = 0; i < measPts.length; i++){
+    lng = measPts[i][0]; lat = measPts[i][1];
+    seg = i ? haversine(measPts[i-1], measPts[i]) : null;
+    rows += '<div class="meas-row"><em>' + (i ? "→ " + i : "起") + '</em>' +
+      '<span>' + fmtLL(lng, lat) + '</span>' +
+      (seg === null ? "" : '<s>' + fmtDist(seg) + '</s>') + '</div>';
+  }
+  var tail = measPts.length < 2
+    ? '<div class="meas-row" style="color:#7d93ae">再单击图上位置以量算第一段距离</div>' : '';
+  return '<div class="meas-hd">测距（球面大圆距离）' +
+      '<span class="clr" id="measDel" role="button" tabindex="0">删末点</span>' +
+      '<span class="clr" id="measClr" role="button" tabindex="0">清空</span></div>' +
+    '<div class="meas-bd">' + (rows || tail) + '</div>' +
+    '<div class="meas-ft"><span>共 ' + measPts.length + ' 点</span>' +
+    '<span>合计 <b>' + fmtDist(measTotal) + '</b></span></div>';
+}
+function renderMeas(){
+  while(gMeas.firstChild) gMeas.removeChild(gMeas.firstChild);
+  var i, prev = null, q, s = "", x, y;
+  /* 橡皮筋挂在末点：重绘时一并重建，保证它始终位于最上层 */
+  if(measOn){ rubEl = mk("path", {"class":"ghost"}); gMeas.appendChild(rubEl); }
+  for(i = 0; i < measPts.length; i++){
+    q = PM(measPts[i][0], measPts[i][1]);
+    if(i) s += "L" + q[0].toFixed(1) + " " + q[1].toFixed(1);
+    else  s  = "M" + q[0].toFixed(1) + " " + q[1].toFixed(1);
+    /* 分段里程标注放在段中点上方 5 px，避免压线 */
+    if(prev){
+      x = (prev[0]+q[0])/2; y = (prev[1]+q[1])/2;
+      gMeas.appendChild(txt("text", {x:x.toFixed(1), y:(y-5).toFixed(1),
+        "text-anchor":"middle"}, fmtDist(haversine(measPts[i-1], measPts[i]))));
+    }
+    gMeas.appendChild(mk("circle", {cx:q[0].toFixed(1), cy:q[1].toFixed(1), r:2.8}));
+    prev = q;
+  }
+  if(measPts.length > 1) gMeas.insertBefore(mk("path", {d:s}), gMeas.firstChild);
+  measEl.innerHTML = measPanelHTML();
+}
+/* 橡皮筋：从末点连到指针的虚线，单独一条路径以便高频更新而不重建整条折线 */
+var rubEl = null;
+function updateRubber(clientX, clientY){
+  if(!rubEl || !measPts.length) return;
+  var pv = svgPt({clientX:clientX, clientY:clientY});
+  var q0 = PM(measPts[measPts.length-1][0], measPts[measPts.length-1][1]);
+  rubEl.setAttribute("d", "M" + q0[0].toFixed(1) + " " + q0[1].toFixed(1) +
+    "L" + pv[0].toFixed(1) + " " + pv[1].toFixed(1));
+}
+function measRecalc(){
+  measTotal = 0;
+  for(var i = 1; i < measPts.length; i++) measTotal += haversine(measPts[i-1], measPts[i]);
+}
+function addMeasPoint(lng, lat){ measPts.push([lng, lat]); measRecalc(); renderMeas(); }
+function clearMeas(){ measPts = []; measTotal = 0; LL_LAST = null; renderMeas(); }
+function delMeasPoint(){ if(!measPts.length) return; measPts.pop(); measRecalc(); renderMeas(); }
+/* 进入/退出测距模式。进入时隐藏省名以减少对折线与里程标注的遮挡，
+   退出时恢复；不改变使用者此前的手动设置（state.labels 不被读写）。 */
+var labelsBak = null;
+function setMeasure(on){
+  /* 先还原上一次的省名设置：setMeasure 可能被重复调用（按钮、Esc、双击），
+     而每次进入都会把 state.labels 存进 labelsBak —— 必须置于最前，否则第二次
+     进入时会用"已被置为 false 的值"覆盖备份，退出后省名再也回不来。 */
+  if(labelsBak !== null){ state.labels = labelsBak; labelsBak = null; }
+  measOn = on;
+  svgbox.classList.toggle("measuring", on);
+  $("btnMeasure").setAttribute("aria-pressed", on ? "true" : "false");
+  $("btnMeasure").textContent = on ? "退出测距" : "测距";
+  hideCoord();
+  if(on){
+    labelsBak = state.labels;        /* 备份使用者的原始设置 */
+    state.labels = false;            /* 测距期间隐藏省名，给折线与里程标注让位 */
+  }
+  /* 退出时清空测量图层。注意 renderMeas() 内部会在 measOn 为真时重建橡皮筋，
+     故必须先关 measOn 再清空（本函数开头已赋新值）。 */
+  if(!on){ while(gMeas.firstChild) gMeas.removeChild(gMeas.firstChild); rubEl = null; }
+  measEl.hidden = !on;
+  if(on){ rubEl = mk("path", {"class":"ghost"}); gMeas.appendChild(rubEl); renderMeas(); }
+  drawLabels();
+}
+$("btnCoord").addEventListener("click", function(){
+  coordOn = !coordOn;
+  this.setAttribute("aria-pressed", coordOn ? "true" : "false");
+  this.textContent = coordOn ? "隐藏经纬度" : "显示经纬度";
+  if(!coordOn) hideCoord();
+});
+$("btnMeasure").addEventListener("click", function(){ setMeasure(!measOn); });
+$("btnMeasureClear").addEventListener("click", function(){ clearMeas(); });
+/* 测距面板内的「删末点 / 清空」用事件委托，避免面板每次重绘都要重新绑定 */
+measEl.addEventListener("click", function(ev){
+  var t = ev.target;
+  if(!t || !t.id) return;
+  if(t.id === "measDel") delMeasPoint();
+  else if(t.id === "measClr") clearMeas();
+});
+
+/* ---------- 键盘 ---------- */
+window.addEventListener("keydown", function(ev){
+  var tag = (ev.target && ev.target.tagName) || "";
+  if(tag === "INPUT" || tag === "TEXTAREA") return;
+  if(ev.key === "Escape"){
+    if(measOn){ setMeasure(false); ev.preventDefault(); return; }
+    if(coordOn){ coordOn = false; $("btnCoord").setAttribute("aria-pressed","false");
+      $("btnCoord").textContent = "显示经纬度"; hideCoord(); }
+    return;
+  }
+  if(measOn && ev.key === "Backspace"){ delMeasPoint(); ev.preventDefault(); }
 });
 
 /* ---------- 启动 ---------- */

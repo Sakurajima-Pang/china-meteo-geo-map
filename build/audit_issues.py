@@ -33,6 +33,8 @@ _rf = next((os.path.join(ROOT, 'data', f) for f in
             ('ne_rivers_cn.geojson', 'ne_rivers.geojson')
             if os.path.exists(os.path.join(ROOT, 'data', f))), None)
 NE = json.load(open(_rf, encoding='utf-8')) if _rf else None
+# 模板源码。多处检查以"源码里是否存在某不变量"为判据，故在此统一读取。
+tmpl = open(os.path.join(HERE, 'template.html'), encoding='utf-8').read()
 
 fails = []      # 断言失败项（回归告警）
 
@@ -232,7 +234,17 @@ chk('跨区省的地级单元索引完整且无重复', split_ok, '; '.join(spli
 # ---------------------------------------------------------------- 事实约束
 P('')
 P('【五】页脚与面板的关键披露仍然存在')
-foot = html[html.find('<footer'):]
+# 页脚从**模板**取而非成品：成品是 assemble.py 的产物。若只看成品，
+# 改模板后不重新构建，这条检查会读到旧成品而误判为"通过"
+# （本项由注入回归验证过 —— 早先版本就是这个毛病）。
+_fi = tmpl.find('<footer')
+if _fi < 0:
+    chk('模板中存在 footer 区块', False)
+    foot = ''
+else:
+    foot = tmpl[_fi:]
+    if '</footer>' in foot:
+        foot = foot[:foot.index('</footer>')]
 for kw, label in [('DataV 不提供台湾省的地级界线', '台湾无地级界线的披露'),
                   ('无边界数据', '澳门无边界堂区的披露'),
                   ('GCJ-02', '坐标基准 GCJ-02'),
@@ -243,7 +255,6 @@ for kw, label in [('DataV 不提供台湾省的地级界线', '台湾无地级�
 
 P('')
 P('【六】制图常量集中于模板顶部（不得散落硬编码）')
-tmpl = open(os.path.join(HERE, 'template.html'), encoding='utf-8').read()
 body_after_cfg = tmpl.split('var SMALL_LABEL_VERTS', 1)[-1]
 chk('MAIN_LAT_MIN 已定义且被引用 ≥3 处',
     'var MAIN_LAT_MIN' in tmpl and tmpl.count('MAIN_LAT_MIN') >= 3,
@@ -257,6 +268,43 @@ P('')
 P('【七】降级路径存在（数据缺失时不得白屏）')
 chk('bootFail 提示函数已定义', 'function bootFail' in tmpl)
 chk('必需字段断言已前置', 'var _need = [' in tmpl and 'bootFail(_miss)' in tmpl)
+
+P('')
+P('【七之二】经纬度读数与测距工具')
+# 关键是不变量本身，而非某个实现细节：投影必须可逆、距离必须用球面公式、
+# 且测距模式下的点击必须与"选省份"互斥。
+chk('逆投影 makeInv 已定义且与 makeProj 共用参数',
+    'function makeInv' in tmpl and 'makeInv(MAIN_BB' in tmpl)
+chk('反墨卡托公式正确（lat = 2·atan(exp(y)) − π/2）',
+    '2*Math.atan(Math.exp(my)) - Math.PI/2' in tmpl)
+chk('测距用 Haversine 球面距离（非平面欧氏）',
+    'function haversine' in tmpl and 'Math.asin(Math.min(1, Math.sqrt(t)))' in tmpl)
+chk('地球半径为 IUGG 平均半径 6371.0088 km',
+    'EARTH_R = 6371.0088' in tmpl)
+chk('测距折线图层挂载且不参与 clipMain 裁剪',
+    'var gMeas  = mk("g", {id:"gMeas"' in tmpl and
+    'gReg,gRText,gLabel,gMeas,gInset].forEach' in tmpl and
+    '[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach' in tmpl)
+chk('测距模式下 province 点击处理器查询 measOn',
+    'if(dragMoved || measOn) return; selectProvince' in tmpl)
+chk('未在 svg 捕获阶段用 stopPropagation 拦截点击',
+    'if(measOn) ev.stopPropagation();' not in tmpl)
+chk('双击结束用浏览器 dblclick 事件（不自造时间阈值）',
+    'svg.addEventListener("dblclick"' in tmpl and 'DBL_MS' not in tmpl)
+# 判据必须限定在 setMeasure 函数体内比较先后，不能对全文件取 index ——
+# 两处关键字在全文件里的相对位置与函数内的先后顺序不是一回事
+# （本项早先版本就因此失效：把函数内两句调换后，全文件 index 依然"正确"）。
+_sm = tmpl.index('function setMeasure')
+_sm_end = tmpl.index('\n}', _sm)
+_sm_body = tmpl[_sm:_sm_end]
+_k_restore = 'if(labelsBak !== null){ state.labels = labelsBak; labelsBak = null; }'
+_k_backup = 'labelsBak = state.labels;'
+chk('setMeasure 内先还原省名备份、后重新备份',
+    _k_restore in _sm_body and _k_backup in _sm_body and
+    _sm_body.index(_k_restore) < _sm_body.index(_k_backup))
+chk('页脚披露坐标读数与测距的精度限制',
+    '按 WGS-84 表述' in foot and 'Haversine' in foot and '仅用于数量级估算' in foot)
+chk('面板/提示框不被坐标读数遮挡（moveTip 查询 coordOn）', 'if(coordOn && x < 250' in tmpl)
 
 P('')
 P('【八】构建期基础设施')
