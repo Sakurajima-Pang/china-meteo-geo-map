@@ -18,15 +18,46 @@ if (!fs.existsSync(OUTDIR)) fs.mkdirSync(OUTDIR, { recursive: true });
 const R = Math.PI / 180;
 const BB = { lng: [73, 135.5], lat: [17.6, 53.8] };
 const VW = 1000, VH = 739, PAD = 6;
-const merc = (lng, lat) => [lng * R, Math.log(Math.tan(Math.PI / 4 + lat * R / 2))];
-const p0 = merc(BB.lng[0], BB.lat[0]), p1 = merc(BB.lng[1], BB.lat[1]);
-const w = p1[0] - p0[0], h = p1[1] - p0[1];
+/* 投影：兰勃特等角圆锥（与 template.html 同一套参数，在此独立重声明）。
+   ⚠ 本脚本原按墨卡托复算，改投影后若不改这里，fwd 算出的坐标与页面完全不符，
+     所有依赖 fwd/inv 的检查都会静默失效（典型空检查）。 */
+const LAT1 = 30, LAT2 = 60, LNG0 = 105;
+const N_ = Math.log(Math.cos(LAT1 * R) / Math.cos(LAT2 * R)) /
+           Math.log(Math.tan(Math.PI / 4 + LAT2 * R / 2) / Math.tan(Math.PI / 4 + LAT1 * R / 2));
+const F_ = Math.cos(LAT1 * R) * Math.pow(Math.tan(Math.PI / 4 + LAT1 * R / 2), N_) / N_;
+const lcc = (lng, lat) => {
+  const rho = F_ / Math.pow(Math.tan(Math.PI / 4 + lat * R / 2), N_);
+  const th = N_ * (lng - LNG0) * R;
+  return [rho * Math.sin(th), rho * Math.cos(th)];   // y = +rho*cos（北在上）
+};
+/* 沿边界密集采样求投影外接盒（不能用四角：纬线是下凹圆弧） */
+function projBounds(bb) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const N = 2000;
+  const acc = (lng, lat) => {
+    const p = lcc(lng, lat);
+    if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0];
+    if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
+  };
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    acc(bb.lng[0] + (bb.lng[1] - bb.lng[0]) * t, bb.lat[0]);
+    acc(bb.lng[0] + (bb.lng[1] - bb.lng[0]) * t, bb.lat[1]);
+    acc(bb.lng[0], bb.lat[0] + (bb.lat[1] - bb.lat[0]) * t);
+    acc(bb.lng[1], bb.lat[0] + (bb.lat[1] - bb.lat[0]) * t);
+  }
+  return [x0, y0, x1, y1];
+}
+const PB = projBounds(BB);
+const w = PB[2] - PB[0], h = PB[3] - PB[1];
 const S = Math.min((VW - 2 * PAD) / w, (VH - 2 * PAD) / h);
 const OX = (VW - w * S) / 2, OY = (VH - h * S) / 2;
-const fwd = (lng, lat) => { const m = merc(lng, lat); return [OX + (m[0] - p0[0]) * S, OY + (p1[1] - m[1]) * S]; };
+const fwd = (lng, lat) => { const p = lcc(lng, lat); return [OX + (p[0] - PB[0]) * S, OY + (p[1] - PB[1]) * S]; };
+/* 逆投影：与 fwd 严格互逆，供「经纬度读数」检查复算用 */
 const inv = (x, y) => {
-  const mx = (x - OX) / S + p0[0], my = p0[1] + (OY + h * S - y) / S;
-  return [mx / R, (2 * Math.atan(Math.exp(my)) - Math.PI / 2) / R];
+  const px = (x - OX) / S + PB[0], py = (y - OY) / S + PB[1];
+  const rho = Math.hypot(px, py), th = Math.atan2(px, py);
+  return [LNG0 + th / (N_ * R), (2 * Math.atan(Math.pow(F_ / rho, 1 / N_)) - Math.PI / 2) / R];
 };
 const hav = (a, b) => {
   const dLat = (b[1] - a[1]) * R, dLng = (b[0] - a[0]) * R;

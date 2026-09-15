@@ -101,7 +101,13 @@ button:active{transform:translateY(1px)}
 .pv:focus{stroke:var(--accent);stroke-width:2.2;outline:none}
 .pv.on{fill:#8fbdea}
 .pvp{fill:#f7c66a;fill-opacity:.55;stroke:#dd9612;stroke-width:1.2}
-.cty{fill:none;stroke:#7ba6d6;stroke-width:.8;stroke-dasharray:3 1.8;cursor:pointer}
+.cty{stroke:#7ba6d6;stroke-width:.8;stroke-dasharray:3 1.8;cursor:pointer;
+  /* 只描边会让**面**不可点击：大而稀疏的单元（如青海海西州，其 bbox 内仅约 4% 是真
+     实辖区）会出现「点在州内却毫无反应」。用 fill:transparent 让整个面参与命中测试，
+     同时保持视觉上不填充。此处不能写 fill:none —— 那会同时排除命中区域。
+     另注意 fill 只在此处声明一次：若前面再加一个 fill:none，虽被本行覆盖（CSS 后者胜），
+     但会留下一个与注释完全相反的声明，日后误删本行即静默退回不可点击状态。 */
+  fill:transparent;pointer-events:visiblePainted;fill-rule:evenodd}
 .cty:hover{stroke:#2f7fe0;stroke-width:1.4;stroke-dasharray:none}
 .cty-h{fill:#f6c85c;fill-opacity:.55;stroke:#d99a12;stroke-width:1.1}
 .cty-all{fill:none;stroke:#5c8cbf;stroke-width:.6;stroke-dasharray:2.2 1.8;stroke-opacity:.9}
@@ -1016,7 +1022,10 @@ function renderPanel(){
   html += '<div class="sec"><h3>主要城市 / 下辖行政区 <span class="typ">' + (cities.length + extras.length) + '</span></h3>' +
     '<div class="note">' + (extras.length
       ? '有边界数据的单元：勾选后在地图上高亮其行政区域范围；标注"点位"的单元仅有位置数据（数据源未提供边界），勾选后只在地图上标出位置，无范围可高亮。'
-      : '勾选后在地图上高亮该单元的行政区域范围；单击地图上该单元边界亦可切换。') + '</div>';
+      : '勾选后在地图上高亮该单元的行政区域范围；单击地图上该单元范围内任意处亦可切换（不必点在边界线上）。') +
+    (cities.length + extras.length >= 8
+      ? '<br>列表较长，可在此面板内滚动查看全部 ' + (cities.length + extras.length) + ' 个单元。' : '') +
+    '</div>';
   for(i = 0; i < cities.length; i++){
     var noGeom = !cities[i].g || !cities[i].g.length;
     html += '<label class="item"><input type="checkbox" data-kind="c" data-id="' + cities[i].a + '"' +

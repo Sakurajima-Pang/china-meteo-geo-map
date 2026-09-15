@@ -17,7 +17,7 @@ build/out/
 
 # ---- 开发过程文件 ----
 # 调试脚本、探针脚本、历次截图。这些是排查问题时的一次性副产品，不具备复用价值。
-# 保留审计脚本（audit*.py / verify_fix.js / check_labels.js），它们是可复跑的验证工具。
+# 保留审计脚本（audit*.py / inject_proj.py / verify_fix.js / check_labels.js），它们是可复跑的验证工具。
 build/dev-scratch/
 build/shots/
 build/audit_shots/

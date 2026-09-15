@@ -17,7 +17,7 @@
     python build/build.py           # 先构建，产出 out/geo.json 与 out/data.json
     python build/audit_issues.py    # 再复核
 """
-import json, os, sys, io, math
+import json, os, sys, io, math, re
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -275,8 +275,40 @@ P('【七之二】经纬度读数与测距工具')
 # 且测距模式下的点击必须与"选省份"互斥。
 chk('逆投影 makeInv 已定义且与 makeProj 共用参数',
     'function makeInv' in tmpl and 'makeInv(MAIN_BB' in tmpl)
-chk('反墨卡托公式正确（lat = 2·atan(exp(y)) − π/2）',
-    '2*Math.atan(Math.exp(my)) - Math.PI/2' in tmpl)
+# ---- 投影为兰勃特等角圆锥（LCC），标准纬线 30/60°N、中央经线 105°E ----
+# 判据须绑定到"常数定义"与"公式本身"两处，缺一即可能被静默改回墨卡托或改错参数。
+chk('兰勃特标准纬线为 30/60°N（气象天气图约定）',
+    'var LCC_LAT1 = 30, LCC_LAT2 = 60;' in tmpl)
+chk('兰勃特中央经线为 105°E', 'var LCC_LNG0 = 105;' in tmpl)
+chk('圆锥常数 n 由双标准纬线公式求得',
+    'Math.log(Math.cos(LCC_LAT1*RAD) / Math.cos(LCC_LAT2*RAD))' in tmpl and
+    'Math.tan(Math.PI/4 + LCC_LAT2*RAD/2) / Math.tan(Math.PI/4 + LCC_LAT1*RAD/2)' in tmpl)
+chk('常数 F = cosφ₁·tanⁿ(π/4+φ₁/2)/n 与公式一致',
+    'LCC_F = Math.cos(LCC_LAT1*RAD) * Math.pow(Math.tan(Math.PI/4 + LCC_LAT1*RAD/2), LCC_N) / LCC_N' in tmpl)
+# 正投影必须取 y = +ρ·cosθ。取负会让整图南北倒置 —— 曾真实发生（实测已复现）。
+# ⚠ 不能只判 `'rho*Math.cos(th)' in body`：把符号改成 −ρ·cosθ 后该子串**依然存在**，
+#   即"南北倒置"这个真实 bug 不会被检出（实测确认是空检查）。
+#   故须先剥掉 `rho * ` 前缀，再要求 y 分量以 '+' 或非负号开头。
+_lcc_body = tmpl[tmpl.index('function lcc('):tmpl.index('var MAIN_BB')]
+_lcc_ret = [_l for _l in _lcc_body.splitlines() if 'return [' in _l]
+chk('正投影 y 取 +ρ·cosθ（北在上；取负会南北倒置）',
+    len(_lcc_ret) == 1 and
+    re.search(r'return\s*\[\s*rho\s*\*\s*Math\.sin\(th\)\s*,\s*\+?\s*rho\s*\*\s*Math\.cos\(th\)\s*\]',
+              _lcc_ret[0]) is not None,
+    'return 行 = ' + (_lcc_ret[0].strip() if _lcc_ret else '(未找到)'))
+chk('正投影 x 取 ρ·sinθ，且 y 不含前置负号',
+    len(_lcc_ret) == 1 and '-rho' not in _lcc_ret[0].replace(' ', ''))
+chk('正投影 x 取 ρ·sinθ', 'Math.sin(th)' in _lcc_body)
+# 反兰勃特：θ = atan2(px, py)（与 x=ρsinθ, y=ρcosθ 对应；写成 atan2(py,px) 会转 90°）
+chk('反兰勃特 θ = atan2(x, y)（与正投影分量对应）', 'Math.atan2(px, py)' in tmpl)
+chk('反兰勃特 ρ = √(x²+y²) 且 φ 由 (F/ρ)^(1/n) 反解',
+    'Math.sqrt(px*px + py*py)' in tmpl and 'Math.pow(LCC_F/rho, 1/LCC_N)' in tmpl)
+# 投影外接盒不能用四角：纬线在圆锥投影下是下凹圆弧，y 极值不在角点。
+chk('projBounds 对四边密集采样（未用四角近似 —— 纬线下凹会算错）',
+    'function projBounds' in tmpl and 'N = 200' in tmpl and
+    tmpl.count('acc(bb.lng[0]') >= 2 and tmpl.count('acc(bb.lng[1]') >= 1)
+chk('makeProj 与 makeInv 均由 projBounds 求仿射参数（保证严格互逆）',
+    tmpl.count('var B = projBounds(bb);') == 2)
 chk('测距用 Haversine 球面距离（非平面欧氏）',
     'function haversine' in tmpl and 'Math.asin(Math.min(1, Math.sqrt(t)))' in tmpl)
 chk('地球半径为 IUGG 平均半径 6371.0088 km',
@@ -331,19 +363,94 @@ chk('gGrid 设为 pointer-events:none（不拦截省份点击）',
 # 缩放平移后必须重绘：格线与度标都按当前视图范围生成
 chk('applyView 中按需重绘经纬网', 'if(gridOn) drawGrid();' in tmpl)
 chk('经纬网默认关闭（gridOn 初值 false）', 'var gridOn = false;' in tmpl)
-# 度标显式带 E/N，避免出现「-5°E」这类自相矛盾读数
-_dg = tmpl[tmpl.index('function drawGrid()'):tmpl.index('function drawGrid()') + 2000]
-chk('经度度标显式带 E 后缀', '°E"' in _dg or '"°E"' in _dg or '+ "°E"' in _dg)
-chk('纬度度标显式带 N 后缀', '+ "°N"' in _dg)
-# 纬线 y 必须逐条投影求得 —— 墨卡托下纬度间距不等，等分会画错
-chk('纬线 y 由投影逐条求得（未用等分）',
-    'p = PM(0, i);' in _dg and 'p[1].toFixed(1)' in _dg)
-chk('经线两端延到视图外（铺满画面，不断在画中）',
-    'y1:vy0.toFixed(1)' in _dg and 'y2:vy1.toFixed(1)' in _dg)
+# 度标显式带 E/N，避免出现「-5°E」这类自相矛盾读数。
+# ⚠ _dg 必须取**整个 drawGrid 函数体**，不能取固定长度窗口：
+#   本项早先版本用 `tmpl[idx:idx+2000]`，兰勃特改造后 drawGrid 因注释变长，
+#   度标代码落到 2000 字符之外，导致「带 E/N 后缀」两项**恒失败**（实测已复现）。
+#   用大括号配平截取函数体，使判据不随注释长度漂移。
+_dg0 = tmpl.index('function drawGrid()')
+_dp = 0
+_dg_end = _dg0
+for _k in range(_dg0, len(tmpl)):
+    if tmpl[_k] == '{':
+        _dp += 1
+    elif tmpl[_k] == '}':
+        _dp -= 1
+        if _dp == 0:
+            _dg_end = _k + 1
+            break
+_dg = tmpl[_dg0:_dg_end]
+chk('drawGrid 函数体已完整截取（依赖大括号配平）',
+    len(_dg) > 2000 and _dg.rstrip().endswith('}'), '%d 字符' % len(_dg))
+chk('经度度标显式带 E 后缀', '°E"' in _dg)
+chk('纬度度标显式带 N 后缀', '°N"' in _dg)
+# 纬线必须是「按经度采样成点串 → 逐段裁剪」的圆弧逼近，不能用直线或等分：
+# 兰勃特下纬线是以圆锥顶点为圆心的弧，弓高最大 171 px，直线近似会明显画错。
+chk('纬线按经度采样成点串（pts.push(PM(...))）',
+    'pts.push(PM(' in _dg and 'pts = [];' in _dg)
+chk('纬线相邻采样点逐段裁剪后拼成 path',
+    'clipLineToRect(pts[j-1][0]' in _dg and 'gGrid.appendChild(mk("path"' in _dg)
+chk('纬线采样步长小于格距（保证弧线精度）',
+    'step = GRID_STEP/' in _dg)
+# 经线在兰勃特下是严格直线（自圆锥顶点的射线），两侧纬度须远超本图范围，
+# 保证裁剪后仍贯穿画面；若只画到 MAIN_BB 边界，放大后经线会断在画中。
+chk('经线两端纬度超出本图范围（射线足够长，裁剪后贯穿画面）',
+    'PM(i, -60)' in _dg and 'PM(i, 80)' in _dg)
+chk('经线经 clipLineToRect 裁剪到裁剪框',
+    'clipLineToRect(pa[0], pa[1], pb[0], pb[1]' in _dg)
+# 格线范围取自 MAIN_BB 而非视图四角：兰勃特下视图四角是空白区，
+# 在角落反算经度会达 50°E/155°E，画出十余条无用经线并把度标推出画面。
+# ⚠ 判据必须绑定**声明语句**本身，不能只判"函数体含 MAIN_BB.lng[0]" ——
+#   函数体后段为算裁剪框仍会引用 MAIN_BB.lng[0]，把 lngMin/lngMax 改成视图四角后
+#   该子串依然存在，即"格线铺到空白区"不会被检出（实测确认是空检查）。
+chk('格线范围取自 MAIN_BB（未用视图四角反算）',
+    'var lngMin = MAIN_BB.lng[0], lngMax = MAIN_BB.lng[1];' in _dg and
+    'var latMin = MAIN_BB.lat[0], latMax = MAIN_BB.lat[1];' in _dg)
+# 同理：度标夹取必须绑定到 lx / ly / lx2 三条赋值语句。
+# 只判"含 vx0 + 12"会被 lx2 那一行满足，去掉 lx 的夹取后仍通过（实测确认是空检查）。
+chk('经度度标夹取到画面边界（lx 语句）',
+    'var lx = Math.max(vx0 + 12, Math.min(vx1 - 12, lp[0]));' in _dg)
+chk('纬度度标夹取到画面边界（ly / lx2 语句）',
+    'var ly = Math.max(vy0 + 10, Math.min(vy1 - 6, best[1] - 3));' in _dg and
+    'var lx2 = Math.max(vx0 + 12, Math.min(vx1 - 12, best[0] - 5));' in _dg)
 chk('经纬网按钮 btnGrid 已绑定并维护 aria-pressed',
     'btnGrid' in tmpl and 'gridOn ? "true" : "false"' in tmpl)
 chk('经纬网与测距/读数可并存（无互斥置位）',
     'setMeasure(false)' in tmpl and 'gridOn = !gridOn;' in tmpl)
+
+P('')
+P('【七之四】下辖单元（城市）的命中区域')
+# .cty 若用 fill:none，则只有**描边**参与命中测试 —— 大而稀疏的单元（如青海海西州，
+# 其 bbox 内仅约 4% 是真实辖区）会出现「点在州内却毫无反应」。实测已复现：
+# 100 点采样仅 4 点命中 cty，bbox 中心点命中的是省界。故必须 fill:transparent
+# （transparent 仍参与命中，none 不参与）+ pointer-events:visiblePainted。
+# .cty 的 CSS 是**跨行**声明的（含解释性注释），不能逐行匹配 ——
+# 逐行取会只拿到含 fill:none 的首行，把正确的规则误判为回归失败（实测已复现）。
+# 且**必须先剥掉 CSS 注释再判**：注释正文里就写着 "fill:transparent" 与 "fill:none"，
+# 不剥注释则「改回 fill:none」这条真实缺陷不会被检出（实测确认是空检查）。
+_cty_i = tmpl.index('.cty{')
+_cty_raw = ' '.join(tmpl[_cty_i:tmpl.index('}', _cty_i)].split())
+_cty_rule = re.sub(r'/\*.*?\*/', '', _cty_raw, flags=re.S)
+chk('.cty 用 fill:transparent（fill:none 会使面不可点击）',
+    re.search(r'(?<![\w-])fill\s*:\s*transparent', _cty_rule) is not None,
+    '规则 = ' + _cty_rule.strip()[:110])
+# fill:none 会同时排除命中区域；规则体内不得含它（注释中的提及已剥离）。
+chk('.cty 规则内无 fill:none（仅注释中提及）',
+    re.search(r'(?<![\w-])fill\s*:\s*none', _cty_rule) is None,
+    '规则 = ' + _cty_rule.strip()[:110])
+chk('.cty 声明 pointer-events:visiblePainted',
+    'pointer-events:visiblePainted' in _cty_rule)
+# 命中判据：.cty 元素自身绑定 click → toggleFeat("c:"+代码)。
+# 不能假设实现用 closest(".cty") —— 实测本页是逐元素绑定，那会是空检查。
+chk('地图上点击 cty 可切换该单元勾选',
+    'el.addEventListener("click"' in tmpl and 'toggleFeat("c:" + c.a)' in tmpl)
+# 点击不得在拖拽/测距途中误触发
+chk('cty 点击已排除拖拽与测距途中（dragMoved / measOn）',
+    'if(!dragMoved && !measOn) toggleFeat("c:" + c.a)' in tmpl)
+# 多外环单元（如海西州被玉树分隔成东西两块）必须按 evenodd 渲染，
+# 否则内部空洞与相邻单元会被错误填充/命中。
+chk('单元面按 fill-rule:evenodd 渲染（多外环单元正确成洞）',
+    'fill-rule":"evenodd"' in tmpl or 'fill-rule:evenodd' in tmpl)
 
 P('')
 P('【八】构建期基础设施')
