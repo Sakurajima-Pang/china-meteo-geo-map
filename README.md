@@ -88,6 +88,7 @@ python build/build.py --fetch
 │   ├── template.html         HTML 模板（样式 + 前端逻辑 + 数据占位符）
 │   ├── assemble.py           注入模板 → 成品 HTML
 │   ├── audit.py / audit2.py / audit3.py   数据与逻辑审计（只读）
+│   ├── audit_issues.py       核查报告 8 项问题的回归复核（只读）
 │   ├── audit_render.js       渲染核查：运行时错误、元素计数、关键区域截图
 │   ├── verify_fix.js         验证河名落点、山脉着色的渲染正确性
 │   ├── check_labels.js       验证省名注记的显隐与联动
@@ -182,9 +183,10 @@ NE 中有同名碎段会让计数虚高。可靠判据是删掉手工段后，�
 ### 静态审计（只读，不修改产物）
 
 ```bash
-python build/audit.py     # 数据源真实性、计算逻辑与界面展示的一致性
-python build/audit2.py    # 山脉中心点 / 省级要素归属 / 区划范围的三向交叉核查
-python build/audit3.py    # 离线自包含性、构建链完备性、代码规模
+python build/audit.py         # 数据源真实性、计算逻辑与界面展示的一致性
+python build/audit2.py        # 山脉中心点 / 省级要素归属 / 区划范围的三向交叉核查
+python build/audit3.py        # 离线自包含性、构建链完备性、代码规模
+python build/audit_issues.py  # 核查报告所列 8 项问题的回归复核（只读）
 ```
 
 ### 渲染核查（需要 Playwright + 本机 Chrome）
