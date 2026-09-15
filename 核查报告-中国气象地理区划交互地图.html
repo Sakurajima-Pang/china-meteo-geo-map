@@ -265,8 +265,10 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line2);font-s
   <code>build/verify_fix.js</code>（河名落点、键盘可达性、面板状态回归验证）<br>
   <code>build/audit_issues.py</code>（构建约束与数据自洽性的回归复核）<br>
   渲染截图输出目录为 <code>build/audit_shots/</code>（运行 <code>audit_render.js</code> 时按需生成；已纳入忽略规则，不入库）。<br><br>
-  <b>构建期门禁</b>：<code>build/build.py</code> —— 统一入口，按 <code>geo.py → content.py → assemble.py</code> 顺序执行，并内置三道门禁：<br>
-  ① 每座山脉的注记点必须落在其自身示意范围内；② 省级要素清单中的每个要素必须与该省范围相交；③ 补充河流的"整条缺失"主张必须成立（该河英文名不得存在于 Natural Earth 的中国河流集合中）。<br><br>
+  <b>构建期门禁</b>：<code>build/build.py</code> —— 统一入口，按 <code>geo.py → content.py → assemble.py</code> 顺序执行，并内置四道门禁：<br>
+  ① 每座山脉的注记点必须落在其自身示意范围内；② 省级要素清单中的每个要素必须与该省范围相交；③ 补充河流的"整条缺失"主张必须成立（该河英文名不得存在于 Natural Earth 的中国河流集合中）；④ 成品中每个 <code>script</code> 块的 JS 语法必须可解析。<br>
+  <span class="small">门禁 ④ 是后补的：其余校验都只看数据，对前端代码的语法错误完全不敏感。
+  项目曾出现"多余一个括号 → 整页空白，而构建仍报全部通过"的情况，故将 JS 语法纳入构建期强制检查。</span><br><br>
   <b>本报告维护约定</b>：只记录<b>仍然成立的事实</b>与<b>仍待处理的事项</b>。已修复的问题在修复时即从本报告移除，
   同时以构建门禁或回归脚本固化，避免文档与实际状态失步。<br>
   <b>当前体积</b>：867.8 KB（内嵌数据 844.4 KB，占 97.3%）。
