@@ -86,6 +86,13 @@ button:active{transform:translateY(1px)}
 #gMeas circle{fill:#fff;stroke:#c2410c;stroke-width:1.8}
 #gMeas text{font-family:var(--mono);font-size:9.5px;fill:#8a3308;font-weight:600;
   paint-order:stroke;stroke:#fff;stroke-width:2.6;stroke-linejoin:round}
+/* 经纬网。格线用中性灰绿以区别于行政区划的蓝，避免被误读为界线；
+   描边用白色「挖空」压在底图之上，使格线在陆地填充与海洋底色上都可读。 */
+#gGrid line{stroke:#5c7a6b;stroke-width:.7;stroke-opacity:.5}
+#gGrid line.g0{stroke-width:1.1;stroke-opacity:.72}      /* 整十度加粗 */
+#gGrid text{font-family:var(--mono);font-size:9px;fill:#3f5c4d;font-weight:600;
+  paint-order:stroke;stroke:#f2f8f5;stroke-width:2.8;stroke-linejoin:round;stroke-opacity:.95}
+#gGrid text.g0{font-size:9.5px;fill:#2f4a3c}
 .hint{padding:7px 14px;font-size:11.5px;color:var(--ink3);border-top:1px solid var(--line);
   background:var(--panel2);border-radius:0 0 14px 14px}
 .pv{fill:#cfe3f8;stroke:#ffffff;stroke-width:.9;transition:fill .12s}
@@ -172,6 +179,7 @@ footer b{color:var(--ink2)}
       <div class="legend" id="legend"></div>
       <div class="tools">
         <button id="btnAllCity" type="button">显示全国市界</button>
+        <button id="btnGrid" type="button" aria-pressed="false">显示经纬网</button>
         <button id="btnCoord" type="button" aria-pressed="false">显示经纬度</button>
         <button id="btnMeasure" type="button" aria-pressed="false">测距</button>
         <button id="btnMeasureClear" type="button">清除测距</button>
@@ -187,7 +195,7 @@ footer b{color:var(--ink2)}
       <div class="coord" id="coord" aria-live="polite"></div>
       <div class="meas" id="meas" hidden></div>
     </div>
-    <div class="hint">悬停省份查看信息 · 单击省份在右侧展开区划与要素 · 「显示全国市界」可查看省以下各级行政区 · 滚轮缩放 / 拖拽平移 / 双击复位 · 「显示经纬度」实时读出指针坐标 · 「测距」可在图上连续取点量算距离（Esc 退出、Backspace 删末点、双击结束）</div>
+    <div class="hint">悬停省份查看信息 · 单击省份在右侧展开区划与要素 · 「显示全国市界」可查看省以下各级行政区 · 滚轮缩放 / 拖拽平移 / 双击复位 · 「显示经纬网」叠加 5° 经纬格 · 「显示经纬度」实时读出指针坐标 · 「测距」可在图上连续取点量算距离（Esc 退出、Backspace 删末点、双击结束）</div>
   </section>
 
   <aside class="card panel">
@@ -234,6 +242,10 @@ var MAIN_LAT_MIN = 17.8;
    顶点多 = 海岸线曲折/岛屿多的省份（如浙江、福建、广东），用小字号避免标签压线。
    原以实现细节 p.g.length > 10 隐式代理，现改为显式常量并在此声明意图。 */
 var SMALL_LABEL_VERTS = 10;
+/* GRID_STEP：经纬网间距（度）。取 5° 是因为主图 73–135.5°E 在该间距下约 13 条经线、
+   17.6–53.8°N 约 8 条纬线，格距约 78 px —— 既不拥挤也不至于无法定位。
+   5 能被 10 整除，故整十度可用 line.g0 单独加粗形成主次两级。 */
+var GRID_STEP = 5;
 
 function makeProj(bb, vw, vh, pad){
   var p0 = merc(bb.lng[0], bb.lat[0]), p1 = merc(bb.lng[1], bb.lat[1]);
@@ -373,6 +385,7 @@ svg.appendChild(defs);
 
 var gRoot  = mk("g");
 var gProv  = mk("g", {id:"gProv"});
+var gGrid  = mk("g", {id:"gGrid", "pointer-events":"none"});
 var gAllCity = mk("g", {id:"gAllCity", "pointer-events":"none"});
 var gSel   = mk("g", {id:"gSel", "pointer-events":"none"});
 var gCity  = mk("g", {id:"gCity"});
@@ -383,9 +396,10 @@ var gRText = mk("g", {id:"gRText", "pointer-events":"none"});
 var gLabel = mk("g", {id:"gLabel", "pointer-events":"none"});
 var gMeas  = mk("g", {id:"gMeas", "pointer-events":"none"});
 var gInset = mk("g", {id:"gInset", "pointer-events":"none"});
-[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText,gLabel,gMeas,gInset].forEach(function(g){ gRoot.appendChild(g); });
+[gProv,gGrid,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText,gLabel,gMeas,gInset].forEach(function(g){ gRoot.appendChild(g); });
 svg.appendChild(gRoot);
-/* gMeas 不挂 clipMain：测距折线在缩放态下可能短暂越出画面，裁剪会造成线段"闪烁消失" */
+/* gMeas 不挂 clipMain：测距折线在缩放态下可能短暂越出画面，裁剪会造成线段"闪烁消失"。
+   gGrid 同样不挂：经纬格本就铺满整个画面，裁剪只会把边缘的度标切掉。 */
 [gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach(function(g){ g.setAttribute("clip-path","url(#clipMain)"); });
 
 /* ---------- 省级底图 ---------- */
@@ -418,6 +432,42 @@ DATA_.p.forEach(function(p){
   gProv.appendChild(el);
   provEl[p.a] = el;
 });
+
+/* ---------- 经纬网 ----------
+   网格线按 GRID_STEP 生成，覆盖主图 bbox 向外取整后的范围。
+   线一律用到视图四角的外接矩形（view.x 等）而非 bbox 内 —— 缩放平移后仍需铺满画面，
+   否则拖到边缘会看到格线"断在画中"。故重绘在 applyView() 中触发。 */
+var gridOn = false;
+function drawGrid(){
+  while(gGrid.firstChild) gGrid.removeChild(gGrid.firstChild);
+  if(!gridOn) return;
+  var vx0 = view.x, vy0 = view.y, vx1 = view.x + view.w, vy1 = view.y + view.h;
+  /* 反算当前视图四角对应的经纬度，据此决定要画哪些格线 */
+  var a = INVM(vx0, vy1), b = INVM(vx1, vy0);   /* a=左下, b=右上 */
+  var lng0 = Math.floor(a[0]/GRID_STEP)*GRID_STEP, lng1 = Math.ceil(b[0]/GRID_STEP)*GRID_STEP;
+  var lat0 = Math.floor(a[1]/GRID_STEP)*GRID_STEP, lat1 = Math.ceil(b[1]/GRID_STEP)*GRID_STEP;
+  var i, p, cls;
+  /* 经线：竖直线，x 由投影给出；两端延到视图外，保证铺满 */
+  for(i = lng0; i <= lng1; i += GRID_STEP){
+    p = PM(i, 0);
+    cls = (i % (GRID_STEP * 2) === 0) ? "g0" : "";
+    gGrid.appendChild(mk("line", {"class":cls, x1:p[0].toFixed(1), y1:vy0.toFixed(1),
+      x2:p[0].toFixed(1), y2:vy1.toFixed(1)}));
+    /* 度标：经度标在画面底边内侧。数值随缩放变化，故每次重绘都要重新生成。
+       标号取绝对值并显式带 E，避免出现「-5°E」这类自相矛盾的读数。 */
+    gGrid.appendChild(txt("text", {"class":cls, x:p[0].toFixed(1), y:(vy1 - 4).toFixed(1),
+      "text-anchor":"middle"}, i + "°E"));
+  }
+  /* 纬线：水平线；墨卡托下纬度间距不等，故 y 逐条投影求得，不可等分 */
+  for(i = lat0; i <= lat1; i += GRID_STEP){
+    p = PM(0, i);
+    cls = (i % (GRID_STEP * 2) === 0) ? "g0" : "";
+    gGrid.appendChild(mk("line", {"class":cls, x1:vx0.toFixed(1), y1:p[1].toFixed(1),
+      x2:vx1.toFixed(1), y2:p[1].toFixed(1)}));
+    gGrid.appendChild(txt("text", {"class":cls, x:(vx0 + 4).toFixed(1), y:(p[1] - 3).toFixed(1),
+      "text-anchor":"start"}, i + "°N"));
+  }
+}
 
 /* ---------- 南海诸岛附图 ---------- */
 (function(){
@@ -827,6 +877,7 @@ function applyView(){
   svg.setAttribute("viewBox", view.x.toFixed(1) + " " + view.y.toFixed(1) + " " +
     view.w.toFixed(1) + " " + view.h.toFixed(1));
   if(measPts.length) renderMeas();   /* 折线与里程标注以 viewBox 坐标存储，缩放后须重绘 */
+  if(gridOn) drawGrid();             /* 经纬网按当前视图范围重算格线与度标 */
   if(coordNeed) refreshCoord();
 }
 function resetView(){ view.x = 0; view.y = 0; view.w = VW; view.h = VH; applyView(); }
@@ -1024,6 +1075,12 @@ $("btnCoord").addEventListener("click", function(){
   this.setAttribute("aria-pressed", coordOn ? "true" : "false");
   this.textContent = coordOn ? "隐藏经纬度" : "显示经纬度";
   if(!coordOn) hideCoord();
+});
+$("btnGrid").addEventListener("click", function(){
+  gridOn = !gridOn;
+  this.setAttribute("aria-pressed", gridOn ? "true" : "false");
+  this.textContent = gridOn ? "隐藏经纬网" : "显示经纬网";
+  drawGrid();
 });
 $("btnMeasure").addEventListener("click", function(){ setMeasure(!measOn); });
 $("btnMeasureClear").addEventListener("click", function(){ clearMeas(); });

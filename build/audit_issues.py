@@ -307,6 +307,45 @@ chk('页脚披露坐标读数与测距的精度限制',
 chk('面板/提示框不被坐标读数遮挡（moveTip 查询 coordOn）', 'if(coordOn && x < 250' in tmpl)
 
 P('')
+P('【七之三】经纬网')
+# GRID_STEP 是格距的唯一来源；散落的魔法数字会让「改格距」变成多点修改
+chk('经纬网格距由 GRID_STEP 常量统一给出',
+    'var GRID_STEP = 5;' in tmpl and tmpl.count('GRID_STEP') >= 4)
+chk('经纬网渲染函数 drawGrid 存在', 'function drawGrid()' in tmpl)
+# drawGrid 必须先清空再重绘：它在按钮切换与每次 applyView 时都会被调用，
+# 少了清空语句就会不断叠加格线（缩放几次后画面被同一批线重复覆盖）。
+chk('drawGrid 重绘前清空图层（防叠加）',
+    'while(gGrid.firstChild) gGrid.removeChild(gGrid.firstChild);' in tmpl)
+# gGrid 必须不参与 clipMain：格线本就要铺满画面，裁剪会把边缘度标切掉
+_clip_line = [l for l in tmpl.splitlines() if 'setAttribute("clip-path", "url(#clipMain)")' in l
+              or 'setAttribute("clip-path","url(#clipMain)")' in l]
+chk('clipMain 应用行存在且未包含 gGrid',
+    bool(_clip_line) and not any('gGrid' in l for l in _clip_line))
+# 判据必须把属性绑到 gGrid 这一行上。早先写成「全文件含 pointer-events:none」
+# ＋「全文件含 id:"gGrid"」两个独立子串测试 —— 别的图层也用 pointer-events:none，
+# 故删掉 gGrid 自己的该属性后检查依然通过（空检查，实测已复现）。
+_gg_line = [l for l in tmpl.splitlines() if 'id:"gGrid"' in l]
+chk('gGrid 设为 pointer-events:none（不拦截省份点击）',
+    bool(_gg_line) and all('"pointer-events":"none"' in l for l in _gg_line),
+    '%d 行定义' % len(_gg_line))
+# 缩放平移后必须重绘：格线与度标都按当前视图范围生成
+chk('applyView 中按需重绘经纬网', 'if(gridOn) drawGrid();' in tmpl)
+chk('经纬网默认关闭（gridOn 初值 false）', 'var gridOn = false;' in tmpl)
+# 度标显式带 E/N，避免出现「-5°E」这类自相矛盾读数
+_dg = tmpl[tmpl.index('function drawGrid()'):tmpl.index('function drawGrid()') + 2000]
+chk('经度度标显式带 E 后缀', '°E"' in _dg or '"°E"' in _dg or '+ "°E"' in _dg)
+chk('纬度度标显式带 N 后缀', '+ "°N"' in _dg)
+# 纬线 y 必须逐条投影求得 —— 墨卡托下纬度间距不等，等分会画错
+chk('纬线 y 由投影逐条求得（未用等分）',
+    'p = PM(0, i);' in _dg and 'p[1].toFixed(1)' in _dg)
+chk('经线两端延到视图外（铺满画面，不断在画中）',
+    'y1:vy0.toFixed(1)' in _dg and 'y2:vy1.toFixed(1)' in _dg)
+chk('经纬网按钮 btnGrid 已绑定并维护 aria-pressed',
+    'btnGrid' in tmpl and 'gridOn ? "true" : "false"' in tmpl)
+chk('经纬网与测距/读数可并存（无互斥置位）',
+    'setMeasure(false)' in tmpl and 'gridOn = !gridOn;' in tmpl)
+
+P('')
 P('【八】构建期基础设施')
 chk('统一构建入口 build.py', os.path.exists(os.path.join(HERE, 'build.py')))
 content = open(os.path.join(HERE, 'content.py'), encoding='utf-8').read()
