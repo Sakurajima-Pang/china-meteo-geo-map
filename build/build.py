@@ -69,6 +69,7 @@ def verify():
         'rv': ctx['rivers'], 'mt': ctx['mt'], 'lk': ctx['lk'],
         'rg': ctx['regions'], 'pr': ctx['provRegions'], 'feat': ctx['feat'],
         'info': ctx['info'], 'ec': ctx['extraCities'], 'isles': ctx['isles'],
+        'dongsha': ctx['dongsha'],
     }
     bad = [k for k in exp if emb.get(k) != exp[k]]
     if bad:
@@ -91,9 +92,10 @@ def verify():
                 unres.append(r['id'] + '->' + mm['p'])
     if unres:
         raise SystemExit('✗ 前端无法解析的区划成员引用: %s' % unres)
-    print('  省级 %d、地级单元 %d、河流 %d、山脉 %d、湖泊 %d、区划 %d、岛礁符号 %d ✓'
+    print('  省级 %d、地级单元 %d、河流 %d、山脉 %d、湖泊 %d、区划 %d、岛礁符号 %d、东沙细分符号 %d ✓'
           % (len(emb['p']), sum(len(v) for v in emb['ci'].values()), len(emb['rv']),
-             len(emb['mt']), len(emb['lk']), len(emb['rg']), len(emb['isles'])))
+             len(emb['mt']), len(emb['lk']), len(emb['rg']), len(emb['isles']),
+             len(emb['dongsha'])))
 
     # 坐标越界检查
     oob = []

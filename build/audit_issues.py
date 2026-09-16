@@ -315,8 +315,14 @@ chk('地球半径为 IUGG 平均半径 6371.0088 km',
     'EARTH_R = 6371.0088' in tmpl)
 chk('测距折线图层挂载且不参与 clipMain 裁剪',
     'var gMeas  = mk("g", {id:"gMeas"' in tmpl and
-    'gReg,gRText,gLabel,gMeas,gInset].forEach' in tmpl and
-    '[gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach' in tmpl)
+    'gLabel,gMeas,gInset].forEach' in tmpl and
+    'gMark,gReg,gRText].forEach' in tmpl and
+    # 反向确认：挂 clipMain 的那条 forEach 里确实没有 gMeas
+    'gMeas].forEach(function(g){ g.setAttribute("clip-path"' not in tmpl)
+chk('主图已不渲染东沙（无 gIsle 图层、无 drawIsleMarks、无 .islt/.isll 样式）',
+    'gIsle' not in tmpl.replace('注：原先还有一个 gIsle 图层（东沙主图符号）', '') and
+    'drawIsleMarks' not in tmpl and
+    '.islt{' not in tmpl and '.isll{' not in tmpl)
 chk('测距模式下 province 点击处理器查询 measOn',
     'if(dragMoved || measOn) return; selectProvince' in tmpl)
 chk('未在 svg 捕获阶段用 stopPropagation 拦截点击',
@@ -456,8 +462,14 @@ P('')
 P('【八】构建期基础设施')
 chk('统一构建入口 build.py', os.path.exists(os.path.join(HERE, 'build.py')))
 content = open(os.path.join(HERE, 'content.py'), encoding='utf-8').read()
-chk('三道构建门禁已内置', '构建门禁' in content)
 geo_src = open(os.path.join(HERE, 'geo.py'), encoding='utf-8').read()
+build_src = open(os.path.join(HERE, 'build.py'), encoding='utf-8').read()
+# 门禁分布在三个脚本里，按管线顺序为 geo.py(3) / content.py(4) / build.py(1) 共 8 道。
+# 判据取「各脚本里确实出现了门禁的实施语句」，而不是数某个笼统的字符串。
+chk('八道构建门禁已内置（geo 3 / content 4 / build 1）',
+    '产物中仍残留人造轮廓' in geo_src and '未在数据中兑现' in geo_src and
+    '东沙一带的真实陆地缺失' in geo_src and
+    '构建门禁' in content and 'JS 语法校验' in build_src)
 chk('输出顺序显式排序（保证可复现）', 'order = _spec_keys + sorted(' in geo_src)
 chk('死代码已清除（无 if \'minpts\' in spec: pass）', "if 'minpts' in spec" not in geo_src)
 chk('拼接河流不原地变异模块级常量',
@@ -471,7 +483,78 @@ chk('调试文件已清理（无 dbg/test_page 等）',
             for f in os.listdir(HERE)))
 
 P('')
-P('【九】抓取脚本的 TLS 校验状态')
+P('【九】东沙人造轮廓判据（行为验证，非字符串匹配）')
+# 这两条判据是本项目最新逮到的一处真实缺陷的防线：原先只凭「质心落在声明坐标
+# 25 km 内」匹配，会把**真实东沙岛本体**（1.67 km²）与三条人造 range ring 一并摘除。
+# 故此处直接**调用** is_synthetic()，构造两个只差面积的环，验证判据确实同时看两项 ——
+# 这比检查源码里有没有某个常量名强得多（后者会把「写了但没用」判为通过）。
+sys.path.insert(0, HERE)
+try:
+    import isles_data as _isl
+    _decl = _isl.AREAS['dongsha_atoll']['coordinates']   # 东沙岛声明坐标
+    _ln, _la = _decl
+
+    def _ring_at(lng, lat, half, n=12):
+        """以 (lng,lat) 为中心、边长 2*half 度的方形环，整数化（×1000）后展平。"""
+        pts = [(lng - half, lat - half), (lng + half, lat - half),
+               (lng + half, lat + half), (lng - half, lat + half)]
+        return [int(round(v * 1000)) for p in pts for v in p]
+
+    # 对照 A：同位置、极小面积（≈ 东沙岛本体的量级）→ 必须**不判**为人造轮廓
+    _small = _ring_at(_ln, _la, 0.004)     # 0.008° 见方 ≈ 0.7 km²
+    # 对照 B：同位置、大面积（range ring 的量级）→ 必须判为人造轮廓
+    _big = _ring_at(_ln, _la, 0.40)        # 0.8° 见方 ≈ 7000 km²
+    chk('is_synthetic() 对声明坐标处的**小**环返回 False（真实陆地不摘）',
+        _isl.is_synthetic(_small) is False,
+        '判为 %r，面积 %.2f km²' % (_isl.is_synthetic(_small), _isl._area_km2(_small)))
+    chk('is_synthetic() 对声明坐标处的**大**环返回 True（人造轮廓要摘）',
+        _isl.is_synthetic(_big) is True,
+        '判为 %r，面积 %.2f km²' % (_isl.is_synthetic(_big), _isl._area_km2(_big)))
+    # 对照 C：远离声明坐标的大环 → 必须不判（作用域限定在声明点附近）
+    _far = _ring_at(_ln + 8.0, _la, 0.40)
+    chk('is_synthetic() 对远离声明坐标的大环返回 False（不误伤别处）',
+        _isl.is_synthetic(_far) is False)
+    # 面积判据的余量：最小人造轮廓必须是阈值的数倍，最大真实陆地必须是阈值的几分之一
+    chk('面积阈值 %.1f km² 两侧余量均 ≥ 4 倍' % _isl.MIN_SYNTH_AREA_KM2,
+        _isl.MIN_SYNTH_AREA_KM2 / _isl._area_km2(_small) >= 4 and
+        _isl._area_km2(_big) / _isl.MIN_SYNTH_AREA_KM2 >= 4,
+        '真实陆地 %.2f km²（阈值是其 %.1f 倍）' % (
+            _isl._area_km2(_small), _isl.MIN_SYNTH_AREA_KM2 / _isl._area_km2(_small)))
+except ImportError as _e:                       # 数据缺失时不得静默通过
+    chk('isles_data 可导入', False, str(_e))
+else:
+    # REMOVE_FROM 必须覆盖**所有**含 ring 的层级。
+    # 同一批人造 range ring 在省级（广东省 440000）与市级（汕尾市 441500）各存一份几何，
+    # 只列其中一个会让另一个继续渲染 —— 本项目真实发生过（表现为「摘了却还有印子」）。
+    # 此处直接扫原始数据，而不是检查源码里有没有写某个 adcode。
+    _raw_hits = {}
+    for _fn, _ads in (('100000_full.json', ['440000']), ('440000_full.json', ['441500'])):
+        _fp = os.path.join(ROOT, 'data', _fn)
+        if not os.path.exists(_fp):
+            continue
+        _rj = json.load(open(_fp, encoding='utf-8'))
+        for _ad in _ads:
+            _ft = [f for f in _rj['features'] if str(f['properties'].get('adcode')) == _ad]
+            if not _ft:
+                continue
+            _cnt = 0
+            for _poly in _ft[0]['geometry']['coordinates']:
+                _ring = [int(round(v * 1000)) for _p in _poly[0] for v in _p]
+                if _isl.is_synthetic(_ring):
+                    _cnt += 1
+            _raw_hits[_ad] = _cnt
+    _missing_units = [ad for ad, n in _raw_hits.items() if n > 0 and ad not in _isl.REMOVE_FROM]
+    chk('REMOVE_FROM 覆盖所有含人造轮廓的层级',
+        not _missing_units,
+        '原始数据含 ring 的单位: %s；REMOVE_FROM=%s%s' % (
+            _raw_hits, list(_isl.REMOVE_FROM),
+            ('；**漏列** ' + ','.join(_missing_units)) if _missing_units else ''))
+    chk('  省级与市级两份几何都确实含 ring（否则上一条判据会空过）',
+        _raw_hits.get('440000', 0) > 0 and _raw_hits.get('441500', 0) > 0,
+        '省级 %d 块 / 市级 %d 块' % (_raw_hits.get('440000', 0), _raw_hits.get('441500', 0)))
+
+P('')
+P('【十】抓取脚本的 TLS 校验状态')
 # 判据是「是否显式关闭校验」，而非「是否出现某个词」
 fc = open(os.path.join(HERE, 'fetch_cities.py'), encoding='utf-8').read()
 fr = open(os.path.join(HERE, 'fetch_rivers.py'), encoding='utf-8').read()

@@ -4,16 +4,30 @@
 阶段二。职责边界：只处理**几何**，不含任何区划归属或注记内容（那属 content.py）。
 
 主要步骤：
-1. Douglas-Peucker 简化（dp）——省级 0.008°、市级 0.018°、九段线 0.03°、河流 0.03°；
+1. Douglas-Peucker 简化（dp）——省级 0.003°、市级 0.005°、九段线 0.03°、河流 0.03°；
 2. 面积过滤（ring_area）——剔除过小的碎片环，三沙市 460300 例外（保留全部南海岛屿）；
-3. 整数化——坐标 ×SCALE(1000) 取整并去重，把浮点压成整数以减小体积；
-4. 河段拼接（stitch）——把 Natural Earth 拆散的碎段按端点就近接成连续河道。
+3. 环形状过滤（_ring_ok）——剔除抽稀后被压成一条线的环（见下）；
+4. 整数化——坐标 ×SCALE(1000) 取整并去重，把浮点压成整数以减小体积；
+5. 河段拼接（stitch）——把 Natural Earth 拆散的碎段按端点就近接成连续河道。
 
-两处容易踩坑的地方：
+关于精度档（TOL_PROV / TOL_CITY 等常量）：
+本图早期用 0.008° / 0.018° 的粗容差，实测导致**群岛被抽稀成一条线**（舟山的 94 个
+岛屿只剩 3 个 part），而数据源本身可用顶点共约 37.8 万、当时只用了 15.8%。现改用
+高精档，使全国地级单元恢复「多 part 群岛」形态（舟山 94→99 part、尚有 5 个环因原
+面积过小被面积阈值剔除，见 MIN_AREA_*）。
+调整这四个常量必须同步跑 `python build/build.py`：产物体积与指纹都会变，
+README / 核查报告中的数字也要跟着改。
+
+三处容易踩坑的地方：
 - `stitch()` 的 max_bridge=0.45° 只连接链的**端点**，不处理「某链端点接在另一链
   中部」的情形。北江、郁江即因此独立成段（视觉上仍在汇合点相接）。
 - 河流输出顺序被固定为「RIVER_SPEC 声明序 + 其余键排序」，以保证同一输入产出
   字节一致的 geo.json（便于 build.py 做指纹比对）。
+- **`len(out) < 6` 的最小顶点数只能筛掉「本来就退化的环」，不能筛掉「被抽稀压成
+  一条线的小岛」**：后者顶点数是 6~9（看起来正常），但 6 个点共线，在屏幕上宽度
+  为 0。必须另用 `_ring_ok()` 的面积判据。历史上真发生过：放宽面积阈值后，海岛的
+  3 点环经 dp 变成 4 点共线环，写成 path 后在浏览器里**完全不显示**，而构建、
+  门禁、verify_tools.js / verify_grid.js 全都报通过。
 
 关于 RIVER_SPEC 的维护：**不要只凭「某区间内有多少个点」判断 NE 是否覆盖某河段**
 —— NE 里存在同名碎段，会让计数虚高，从而误判为「整条缺失」而画上手工线。
@@ -27,8 +41,32 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, '..', 'data')
 OUT = os.path.join(HERE, 'out')
 os.makedirs(OUT, exist_ok=True)
+sys.path.insert(0, HERE)
+# 南海诸岛注记的单一真源：东沙三块人造轮廓的甄别逻辑在那里，本文件只负责调用
+from isles_data import (AREAS, MIN_SYNTH_AREA_KM2, REMOVE_FROM, is_synthetic,
+                       real_parts_near_rings, split_dongshat)
+
+# 已命中并摘除的声明 id（省级 + 市级累计）。用于断言「每条声明都在数据里兑现了」——
+# 注意同一批 ring 在省级与市级各存一份，故同一条声明会被命中两次，这里用集合去重。
+_synth_seen = set()
 
 SCALE = 1000.0   # 坐标放大倍数（整数编码）
+
+# ---------- 精度档 ----------
+# 全部为「度」。数值依据见本文件顶部说明；改动后必须重跑 build.py。
+TOL_PROV = 0.003      # 省级 Douglas-Peucker 容差
+TOL_CITY = 0.005      # 市级 Douglas-Peucker 容差
+TOL_JD   = 0.030      # 九段线容差（直线段为主，可粗）
+TOL_RIV  = 0.030      # 河流容差
+MIN_AREA_PROV = 0.00002   # 省级最小外环面积（平方度）≈ 0.2 km²
+MIN_AREA_CITY = 0.00005   # 市级最小外环面积（平方度）≈ 0.5 km²
+# 三沙市（460300）不做面积过滤：南海诸岛本就是星散小环，过滤会整片消失。
+NO_AREA_FILTER = ('460300',)
+
+# 抽稀后环的「压塌」判据：外接框任一边长小于此值（度）即认为已被压成一条线。
+# 0.004° ≈ 440 m，远小于 SCALE(1000) 下一个坐标单位的可表达范围，
+# 故凡通过此判据的环，在屏幕上至少有一维是可分辨的。
+MIN_RING_EXTENT = 0.0005
 
 
 # ---------- Douglas-Peucker ----------
@@ -76,6 +114,22 @@ def ring_area(pts):
     return abs(s) / 2.0
 
 
+def _ring_ok(pts):
+    """抽稀后的环是否还「撑得开」。
+
+    必须与 `len(pts) < 3` 分开判断，原因见模块 docstring 第三个坑：
+    一组共线的 4 个点顶点数合格、面积却为 0，前面的顶点数检查拦不住。
+    判据取外接框两边长，而不是面积 —— 面积会把「细长但真实」的岬角、
+    沙洲一并误杀，外接框只排除真正退化的情形。
+    注：此处比较的是**原始经纬度**（非整数化后的坐标），阈值单位是度。
+    """
+    if len(pts) < 3:
+        return False
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return (max(xs) - min(xs)) >= MIN_RING_EXTENT and (max(ys) - min(ys)) >= MIN_RING_EXTENT
+
+
 def prep_ring(ring, tol, min_area):
     pts = [(float(p[0]), float(p[1])) for p in ring]
     if len(pts) > 1 and pts[0] == pts[-1]:
@@ -85,7 +139,7 @@ def prep_ring(ring, tol, min_area):
     if ring_area(pts) < min_area:
         return None
     pts = dp(pts, tol)
-    if len(pts) < 3:
+    if not _ring_ok(pts):
         return None
     # 整数化 + 去重
     out = []
@@ -135,22 +189,34 @@ jd = None
 for f in nat['features']:
     p = f['properties']
     if str(p.get('adcode')) == '100000_JD':
-        jd = prep_geometry(f['geometry'], 0.03, 0.0)
+        jd = prep_geometry(f['geometry'], TOL_JD, 0.0)
         continue
     if p.get('level') != 'province':
         continue
+    ad = str(p['adcode'])
+    g, dids = split_dongshat(ad, prep_geometry(f['geometry'], TOL_PROV, MIN_AREA_PROV))
+    _synth_seen.update(dids)
     provinces.append({
-        'ad': str(p['adcode']),
+        'ad': ad,
         'name': p['name'],
         'abbr': p.get('adchar') or '',
         'c': [round(p['center'][0], 3), round(p['center'][1], 3)],
-        'g': prep_geometry(f['geometry'], 0.008, 0.00015),
+        'g': g,
     })
 
 print('provinces', len(provinces))
 print('JD lines', len(jd))
 
 # ---------- 市级 ----------
+# 东沙群岛的三块环礁在 DataV 数据中是**按自身中心生成的圆形 range ring**
+# （详见 isles_data.py 的考证），与真实海岸线无关，也不是汕尾市的实际行政区域。
+# 它们在数据层面被归给汕尾市，故必须从行政区划几何中**剔除**。
+# 剔除的理由不是「尺寸显眼」—— 三块的等效直径为 7.2~14.8 km，在本图比例下
+# 主图仅 1.1~2.3 px、附图 0.6~1.2 px，肉眼几乎看不出；真正的理由是
+# **把人工 range ring 描成陆地色块，等于宣称「这就是东沙的形状」**。
+# 注意同一批 ring 在省级（广东省）与市级（汕尾市）各存一份，两份都要摘，
+# 只摘一份会让另一份继续渲染（见 REMOVE_FROM 的说明）。
+_real_near = 0       # 声明坐标附近被保留的**真实**陆地环数（应为 1：东沙岛本体）
 city_index = {}   # province ad -> [ {ad,name,c,g} ]
 for pr in provinces:
     path = os.path.join(DATA, '%s_full.json' % pr['ad'])
@@ -165,17 +231,79 @@ for pr in provinces:
             continue
         ad = str(p['adcode'])
         # 三沙市（南海诸岛）保留全部岛屿，不做面积过滤
-        ma = 0.0 if ad == '460300' else 0.0003
+        ma = 0.0 if ad in NO_AREA_FILTER else MIN_AREA_CITY
+        g = prep_geometry(f['geometry'], TOL_CITY, ma)
+        keep, dids = split_dongshat(ad, g)
+        _synth_seen.update(dids)
+        # 正面判据：该处的**真实陆地**必须在产物里，而不只是「没被本表摘掉」。
+        # 面积过滤在 split_dongshat 之前运行，故真实小岛可能被它提前剔除，
+        # 而「声明已兑现」的断言对此完全无感（详见 real_parts_near_rings）。
+        if ad in REMOVE_FROM:
+            _real_near += len(real_parts_near_rings(keep))
+        if not keep and g:
+            # 该单元的全部几何都是人造环礁轮廓：保留记录（前端会标为无边界数据），
+            # 但不得静默留空而不出声 —— 这属于「数据被我们主动改动」，必须可追溯。
+            print('  注：%s(%s) 的全部几何均为东沙群岛人造轮廓，已剔除' % (p['name'], ad))
         items.append({
             'ad': ad,
             'name': p['name'],
             'c': [round(p['center'][0], 3), round(p['center'][1], 3)],
-            'g': prep_geometry(f['geometry'], 0.018, ma),
+            'g': keep,
         })
     city_index[pr['ad']] = items
 
 tot = sum(len(v) for v in city_index.values())
 print('cities', tot)
+print('东沙群岛人造轮廓命中并摘除的声明:', '、'.join(sorted(_synth_seen)) or '（无）')
+
+# ---------- 门禁 1：后置条件 —— 产物中不得残留任何人造轮廓 ----------
+# 这是最强、也最贴近目标的判据：直接检查**结果**，而不是「我们摘了几个」。
+# 它拦得住「摘漏了某个层级/某个单元」—— 本项目真实发生过：同一批 ring 在省级
+# 与市级各存一份，只摘市级那份时，ring 仍经省级图层渲染（表现为「摘了却还有印子」），
+# 而当时基于「摘除数 == 声明数」的判据对此完全无感。
+_leftover = []
+for _u in provinces:
+    for _poly in (_u['g'] or []):
+        if any(is_synthetic(_r) for _r in _poly):
+            _leftover.append('省级 %s(%s)' % (_u['name'], _u['ad']))
+for _lst in city_index.values():
+    for _u in _lst:
+        for _poly in (_u['g'] or []):
+            if any(is_synthetic(_r) for _r in _poly):
+                _leftover.append('市级 %s(%s)' % (_u['name'], _u['ad']))
+if _leftover:
+    raise SystemExit(
+        '产物中仍残留人造轮廓（%d 处）：%s\n'
+        '  排查：REMOVE_FROM 是否列全了所有含 ring 的单元（省级与市级是两份独立几何，\n'
+        '  同一批 ring 各存一份，只列其中一个会让另一个继续渲染）。\n'
+        '  核对：python build/isles_data.py（逐 part 打印判定依据）'
+        % (len(_leftover), '、'.join(sorted(set(_leftover)))))
+
+# ---------- 门禁 2：每条声明都必须在数据里兑现 ----------
+# 与门禁 1 互补：门禁 1 是「不许漏摘」，本条是「不许空声明」。
+# 若上游把 ring 删掉了，门禁 1 会**空过**（没有残留自然没有违规），
+# 此时只有本条能发现「声明表已经与数据脱钩」。
+_missing = set(AREAS) - _synth_seen
+if _missing:
+    raise SystemExit(
+        '声明表未在数据中兑现：%s 这 %d 条声明未命中任何几何。\n'
+        '  说明上游数据已变动（ring 被删除或移到别处），声明表须同步更新。\n'
+        '  核对：python build/isles_data.py'
+        % ('、'.join(sorted(_missing)), len(_missing)))
+print('东沙人造轮廓已摘除，命中的声明共 %d 条（%s）'
+      % (len(_synth_seen), '、'.join(sorted(_synth_seen))))
+
+# ---------- 门禁 3：东沙一带的真实陆地必须仍在产物中 ----------
+# 只有这条能拦住「被面积过滤提前剔除」——前两条对那种情况无感：
+# 面积过滤在 split_dongshat 之前运行，剔掉真实岛后既无残留、声明也已兑现。
+if _real_near != 1:
+    raise SystemExit(
+        '东沙一带的真实陆地缺失：声明坐标附近保留了 %d 个真实陆地环，应为 1 个'
+        '（东沙岛本体，约 1.67 km²）。\n'
+        '  若为 0，通常是它被 MIN_AREA_CITY(%.5f 平方度 ≈ %.1f km²) 面积过滤'
+        '提前剔除了 —— 该过滤在 split_dongshat 之前运行。\n'
+        '  核对：python build/isles_data.py'
+        % (_real_near, MIN_AREA_CITY, MIN_AREA_CITY * 111.32 * 110.57 * 0.936))
 
 # ---------- 河流（Natural Earth，仅取河道中心线） ----------
 RIVER_SPEC = {

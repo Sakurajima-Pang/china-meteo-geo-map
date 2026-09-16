@@ -7,7 +7,7 @@
 
 两点必须留意：
 1. 字段名在此处被**缩写**（p / ci / jd / rv / mt / lk / rg / pr / feat / info /
-   ec / isles），前端 JS 依赖这些名字，改名要同步改 template.html。
+   ec / isles / dongsha），前端 JS 依赖这些名字，改名要同步改 template.html。
 2. 序列化时把 `</` 转义为 `<\\/`，避免数据中出现 `</script>` 序列而提前闭合脚本块。
 """
 import json, os
@@ -34,6 +34,7 @@ DATA = {
     'info': ctx['info'],
     'ec': ctx['extraCities'],
     'isles': ctx['isles'],
+    'dongsha': ctx['dongsha'],
 }
 
 blob = json.dumps(DATA, ensure_ascii=False, separators=(',', ':'))

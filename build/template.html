@@ -119,8 +119,22 @@ button:active{transform:translateY(1px)}
 .lbl{font-size:11px;fill:#2f4d70;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round}
 .lbl.sm{font-size:9.5px}
 .jd{fill:none;stroke:#1b5fa8;stroke-width:2.4;stroke-linecap:round;opacity:.95}
-.insetbox{fill:#f4faff;fill-opacity:.45;stroke:#7fa9d6;stroke-width:1}
-.insett{font-size:9.5px;fill:#33506f;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:2.6}
+/* 东沙群岛细分符号（岛 / 礁）。东沙在数据里是一个整体点（ISLES），
+   但它的主体其实是**完全没入水下**的沉水环礁，若只画一个实心点，
+   会被读成「东沙是一块陆地」。故拆成三点并按性质区分样式：
+     .isc —— 有露出水面的陆地（东沙岛）：实心圆点
+     .isb —— 沉水环礁（北卫滩 / 南卫滩）：**空心圆**，一眼可辨「此处无陆地」
+   两类符号都靠 <title> 给出名称与水深，且 <title> 是 SVG **原生**提示，
+   不需要 JS 参与。
+
+   ⚠ **只在附图（gInset）中使用** —— 主图按用户要求已不渲染东沙，
+   见下方「主图**不**渲染东沙群岛」注释。 */
+.isc{fill:#1b5fa8;stroke:#fff;stroke-width:.6;pointer-events:all}
+.isb{fill:#f4faff;stroke:#1b5fa8;stroke-width:.9;pointer-events:all}
+.insetbox{fill:#f4faff;fill-opacity:.45;stroke:#7fa9d6;stroke-width:1;
+  pointer-events:none}
+.insett{font-size:9.5px;fill:#33506f;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:2.6;
+  pointer-events:none}
 #tip{position:absolute;pointer-events:none;z-index:20;opacity:0;transition:opacity .12s;
   background:rgba(20,38,60,.94);color:#fff;padding:7px 10px;border-radius:8px;font-size:12px;
   line-height:1.5;box-shadow:0 6px 18px rgba(16,45,80,.28);max-width:240px}
@@ -220,7 +234,8 @@ footer b{color:var(--ink2)}
     4. <b>界线精度说明</b>：一级气象地理区划的原生界线以黄河、淮河、长江、南岭等自然地理线为界，<b>本图按地级市（直辖市、特别行政区按区）整体聚合绘制，属近似范围</b>；跨区划的地级市按主体范围归并（如江苏淮安、盐城归入江淮地区，南京归入江南地区）。<b>须特别说明：跨区划省份的"城市级归属"在公开文献中并无权威版本</b>——《中国气象地理区划手册》只给出到省级与自然地理线级别的文字描述，本图的城市级切分系依据这些自然地理线所作的<b>推断性细化</b>，与各区域文字定义中的表述可能存在出入（例如山东一省按《手册》分属华北南部与黄淮北部，本图据此取南北分界，故泰安、淄博等市的实际市域跨越该界线）。精确界线请以中国气象局发布的气象地理区划图为准。<br>
     5. <b>坐标基准</b>：行政区划为 GCJ-02，河道中心线为 WGS-84，两者存在约 300–600 m 的系统性偏移；在本图比例（主图约 21 像素/经度）下约合 0.1 像素，肉眼不可见。页面「显示经纬度」读出的是<b>画面投影坐标反算所得、按 WGS-84 表述</b>的数值；由于底图本身为 GCJ-02，该读数与天地图、GPS 等 WGS-84 标准值之间存在上述量级的偏移，<b>不可用于高精度测绘或定位</b>。<br>
     6. <b>测距工具</b>：距离采用<b>球面大圆（Haversine）公式</b>按地球平均半径 6371.0088 km 计算，结果以千米表示；本图在跨数十个经度时平面距离误差显著，故未采用投影平面距离。但测点由<b>屏幕坐标反算</b>，其精度受限于画面比例（主图约 21 像素/经度，即约 5 km/像素）与上述坐标基准偏移，<b>仅用于数量级估算</b>，不可作为业务量算依据。折线上的分段与总距离亦未计入地形起伏。<br>
-    7. 本页面为教学与演示用途的示意图，不作为权威地图或气象业务依据使用。
+    7. <b>南海诸岛与东沙群岛的呈现方式</b>：西沙、中沙、南沙、黄岩岛、曾母暗沙等岛礁实际面积在本图比例下<b>不足 1 像素</b>，按制图惯例以<b>点状符号</b>标注群岛位置，不代表其实际形状或范围，统在右下角<b>「南海诸岛」附图</b>中呈现。<b>东沙群岛亦只在附图呈现，主图不画</b> —— 主图只表达一级气象地理区划，而东沙群岛距汕尾陆域约 295 km、孤悬南海，画在大陆主体图幅上会与「香港」等省名相邻而显得突兀。附图是南海诸岛的指定呈现位，东沙与西沙 / 中沙 / 南沙并列，故<b>予以保留</b>（四大群岛缺一会使领土表述不完整）。<br>　　<b>东沙群岛的呈现细节</b>：上游数据把东沙表示为三块按自身中心生成的圆形范围环（与真实海岸线无关——三块的圆形度为 0.26 / 0.93 / 0.82，其中两块比自然岸线更接近正圆，自然岸线因有岬湾起伏普遍在 0.5 附近；面积 40~173 km²，而该处真实陆地仅约 1.7 km²，相差 25 倍，且北卫滩、南卫滩完全没入水下），故本图<b>不按面绘制这三块</b>，改以：<b>实心点</b>表示东沙岛（有常年露出水面的陆地），<b>空心点</b>表示北卫滩与南卫滩（分别没入水下约 11 m 与 58 m，<b>无露出陆地</b>）。北卫滩与南卫滩相距 12.2 km、在附图上不足 1 像素，故合并为一个符号，鼠标悬停可分别读出两者的名称与水深。此呈现方式表达的是<b>位置与性质</b>，<b>不表达各岛礁的实际轮廓</b>。<br>
+    8. 本页面为教学与演示用途的示意图，不作为权威地图或气象业务依据使用。
   </div>
 </footer>
 
@@ -412,8 +427,10 @@ function geomPath(geom, P, v, mode){
 /* 数据由 build/assemble.py 注入到上方脚本块的数据占位符位置。
    字段名是缩写的，对照：p=省份 ci=市级 jd=九段线 rv=河流 mt=山脉 lk=湖泊
    rg=一级区划 pr=省份→区划 feat=省级要素清单 info=省份简称/省会
-   ec=补充点位单元（台湾下辖县市） isles=南海岛礁符号
-   这里预先建好各张索引表，避免渲染时反复线性查找。
+     ec=补充点位单元（台湾下辖县市）
+     isles=南海岛礁**点状符号**（只标群岛位置；东沙群岛此项由 dongsha 取代，不重复渲染）
+     dongsha=东沙群岛的岛礁细分符号（东沙岛 / 北卫滩 / 南卫滩，带 kind 区分露出与沉水）
+     这里预先建好各张索引表，避免渲染时反复线性查找。
 
    ⚠ 健壮性：DATA 正常构建下必然齐备，但若 HTML 被手工编辑、传输损坏或注入失败，
    下面的索引构建会在 `DATA_.p.forEach` 处直接抛 ReferenceError/TypeError，
@@ -474,11 +491,16 @@ var gReg   = mk("g", {id:"gReg", "pointer-events":"none"});
 var gRText = mk("g", {id:"gRText", "pointer-events":"none"});
 var gLabel = mk("g", {id:"gLabel", "pointer-events":"none"});
 var gMeas  = mk("g", {id:"gMeas", "pointer-events":"none"});
-var gInset = mk("g", {id:"gInset", "pointer-events":"none"});
+/* gInset 不设 pointer-events:none：附图里的东沙细分符号要能悬停读名称与水深。
+   代价是 gInset 的矩形本身会拦截指针 —— 但附图叠在主图右下角的南海海面上，
+   那里本就没有可点的内容。实测 verify_city_hit.js 的命中率仍为 89/100，
+   且「单击省份」的全部判据不受影响。 */
+var gInset = mk("g", {id:"gInset"});
 [gProv,gGrid,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText,gLabel,gMeas,gInset].forEach(function(g){ gRoot.appendChild(g); });
 svg.appendChild(gRoot);
 /* gMeas 不挂 clipMain：测距折线在缩放态下可能短暂越出画面，裁剪会造成线段"闪烁消失"。
-   gGrid 同样不挂：经纬格本就铺满整个画面，裁剪只会把边缘的度标切掉。 */
+   gGrid 同样不挂：经纬格本就铺满整个画面，裁剪只会把边缘的度标切掉。
+   注：原先还有一个 gIsle 图层（东沙主图符号），已随「主图不渲染东沙」一并移除。 */
 [gProv,gAllCity,gSel,gCity,gRiver,gMark,gReg,gRText].forEach(function(g){ g.setAttribute("clip-path","url(#clipMain)"); });
 
 /* ---------- 省级底图 ---------- */
@@ -646,6 +668,19 @@ function drawGrid(){
 }
 
 /* ---------- 南海诸岛附图 ---------- */
+/* 已被 DONGSHA 细分符号取代的南海岛礁群组名（**仅附图使用** —— 主图已不渲染东沙）。
+   这类群组在 ISLES 里是「整个群岛」的一个代表点，而 dongsha 已在其位置画出各块的
+   符号与名称 —— 两者屏幕距离不足 1 单位（东沙群岛点 ↔ 东沙岛点仅 0.3 单位），
+   同时渲染会叠成一团，白描边还会从空心符号背后露出形成月牙状白边；
+   且「东沙群岛」那枚实心点会被误读为「东沙群岛是一块露出水面的陆地」。
+   故声明跳过，由细分符号承担该信息。
+
+   ⚠ 必须声明在附图 IIFE **之前**，否则 const 的暂时性死区（TDZ）会在
+   IIFE 首次调用 islesCoveredBy 时抛 ReferenceError —— 而该 IIFE 在 try/catch
+   内，表现为整页「数据未能载入」、所有图层 0 个元素。 */
+const ISLES_SUPERSEDED = ['东沙群岛'];
+function islesCoveredBy(name){ return ISLES_SUPERSEDED.indexOf(name) >= 0; }
+
 /* 附图沿用主图同一投影（兰勃特）。附图范围 2.5–24.5°N 位于标准纬线（30/60°N）以南，
    该处长度比约 1.14（即略有放大）—— 但附图只作「南海诸岛在我国版图内的大致位置」
    示意，不作量测，且同为兰勃特后附图与主图的形状风格一致。此点已在页脚披露。 */
@@ -667,17 +702,72 @@ function drawGrid(){
     g.appendChild(mk("path", {"class":"jd", d:ringPath(flat, P)}));
   });
   /* 南海诸岛主要岛群符号（岛礁实际面积在该比例下不足 1 像素，按制图惯例以符号表示）。
-     坐标与名称均来自数据层 DATA_.isles，不在渲染代码中硬编码。 */
+     坐标与名称均来自数据层 DATA_.isles，不在渲染代码中硬编码。
+
+     附图是南海诸岛的**指定呈现位**，东沙与西沙 / 中沙 / 南沙并列在这里出现；
+     主图则不渲染任何东沙要素（见「主图**不**渲染东沙群岛」处的说明）。
+
+     「东沙群岛」一项**跳过**（islesCoveredBy），由下面的细分符号取代：东沙的主体是
+     完全没入水下的沉水环礁，只画一个实心点会被读成「东沙是一块陆地」；且两者位置
+     仅差 0.3 单位，同时画会叠成一团。细分符号按性质取样式（cay 实心 / bank 空心），
+     <title> 给出名称与水深。 */
   (DATA_.isles || []).forEach(function(it){
+    if(islesCoveredBy(it[0])) return;   /* 东沙已改由 dongsha 细分符号取代 */
     var q = P(it[1], it[2]);
     var c = mk("circle", {cx:q[0].toFixed(1), cy:q[1].toFixed(1), r:1.6, fill:"#1b5fa8"});
     c.appendChild(txt("title", {}, it[0]));
     g.appendChild(c);
   });
+  /* 东沙群岛细分符号（DATA_.dongsha）。同样做**合群**处理：北卫滩与南卫滩相距
+     仅 12.2 km，在附图比例（8.29 viewBox 单位/°）下不足 1 单位，必然粘连。
+     合并规则：间距过近即并为一点，
+     性质取「只要有一块有露出陆地就按实心画」。 */
+  (function(){
+    /* ⚠ 本 IIFE 内的循环变量**不能**叫 g —— 外层 const g 是附图那个 <g> 容器，
+       遮蔽后会抛「g.appendChild is not a function」，且因为整段在 try/catch 里，
+       表现为**整页数据载入失败提示**（bootFail）、所有图层渲染 0 个元素。
+       故此处用 grp 命名。 */
+    var MERGE_PX = 1.6, grps = [];
+    (DATA_.dongsha || []).forEach(function(a){
+      var q = P(a.ll[1], a.ll[0]);
+      for(var i = 0; i < grps.length; i++){
+        var grp = grps[i];
+        if(Math.abs(grp.x - q[0]) < MERGE_PX && Math.abs(grp.y - q[1]) < MERGE_PX){
+          grp.items.push(a); if(a.kind === 'cay') grp.kind = 'cay'; return;
+        }
+      }
+      grps.push({x:q[0], y:q[1], items:[a], kind:a.kind});
+    });
+    grps.forEach(function(grp){
+      var isBank = grp.kind === 'bank';
+      var c = mk("circle", {"class": isBank ? "isb" : "isc",
+        cx:grp.x.toFixed(1), cy:grp.y.toFixed(1), r: isBank ? 1.5 : 1.3});
+      c.appendChild(txt("title", {}, '东沙群岛 · ' +
+        grp.items.map(function(a){
+          return a.n + '：' + (a.kind === 'bank'
+            ? '沉水环礁，最浅处约 ' + Math.abs(a.depth) + ' m 位于水面以下，无露出陆地'
+            : '有常年露出水面的陆地，面积约 1.7 km²');
+        }).join('；')));
+      g.appendChild(c);
+    });
+  })();
   g.appendChild(txt("text", {"class":"insett", x:7, y:IH-7}, "南海诸岛"));
   gInset.appendChild(mk("rect", {"class":"insetbox", x:IX, y:IY, width:IW, height:IH, rx:3}));
   gInset.appendChild(g);
 })();
+
+/* ---------- 主图**不**渲染东沙群岛（2026-09-16 按用户要求移除）----------
+   主图只表达一级气象地理区划。东沙群岛距汕尾陆域约 295 km，在主图上孤悬南海、
+   与「香港」省名相邻，视觉上突兀（原实现：两枚符号 + 一条「东沙群岛（汕尾市）」
+   标注 + 引线）。故主图不再绘制任何东沙要素。
+
+   **但附图仍然呈现**（`gInset` 内的 `DATA_.dongsha` 符号）—— 附图是南海诸岛的
+   指定呈现位，东沙与西沙 / 中沙 / 南沙并列。从附图中移除会使南海四大群岛缺一，
+   领土表述不完整，故**刻意保留**。本页页脚第 7 条已如实说明这一区别。
+
+   ⚠ 不要因为「主图没有」就把 `DATA_.dongsha` 或 `isles_data.py` 的声明表删掉 ——
+   附图仍在使用。附图那里的合群规则（`MERGE_PX = 1.6`）与本处原主图实现同源，
+   注释在附图的 IIFE 内。 */
 
 /* ---------- 省名 ---------- */
 var LABEL_OFF = {"110000":[-16,-8],"120000":[9,-8],"310000":[16,6],"810000":[20,15],"820000":[-28,17],"710000":[14,6]};
@@ -1251,6 +1341,7 @@ function setMeasure(on){
   if(!on){ while(gMeas.firstChild) gMeas.removeChild(gMeas.firstChild); rubEl = null; }
   measEl.hidden = !on;
   if(on){ rubEl = mk("path", {"class":"ghost"}); gMeas.appendChild(rubEl); renderMeas(); }
+  /* 测距时要给折线让位：省名与东沙注记一起隐藏（两者同属注记层） */
   drawLabels();
 }
 $("btnCoord").addEventListener("click", function(){

@@ -27,6 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from mtn_shapes import SHAPES
+from isles_data import AREAS, REMOVE_FROM, split_dongshat, match
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out')
@@ -328,9 +329,12 @@ EXTRA_CITIES = {
                ['云林县', 120.540, 23.710], ['屏东县', 120.490, 22.670], ['澎湖县', 119.570, 23.570]],
 }
 
-# ---------------- 南海诸岛主要岛群符号 ----------------
+# ---------------- 南海诸岛符号 ----------------
 # 岛礁实际面积在本图（附图约 1:2000 万）下不足 1 像素，按制图惯例以符号表示。
 # 原先硬编码在前端 JS 中，现移入数据层。
+#
+# 结构：[名称, 经度, 纬度, 性质]   性质 'cay'=有露出陆地 / 'bank'=完全没入水下
+# 后两项由 isles_data.AREAS 的声明补齐，缺声明者按既有的实心点渲染（保持原行为）。
 ISLES = [
     ['西沙群岛', 112.33, 16.83],
     ['中沙群岛', 114.30, 15.50],
@@ -340,7 +344,36 @@ ISLES = [
     ['曾母暗沙', 112.28, 3.97],
 ]
 
-SC = 1000.0
+# ---------------- 东沙群岛的「岛 / 礁」细分符号 ----------------
+# 背景（完整考证见 isles_data.py）：DataV 数据把东沙群岛表示为三块按中心生成的
+# 圆形 range ring，与真实海岸线无关。geo.py 已将它们从汕尾市几何中摘除 ——
+# 否则主图会在南海中部画出三块实心陆地色块。
+#
+# 呈现在此处用**点状符号**而不是面：
+#   试过面状呈现，不可读，且方法论上是错的。三条理由：
+#   ① 屏幕尺寸不够。这三块的「面积」是 range ring 的圆面积，按外接框折算是
+#      东沙岛 19.3×22.0 km、北卫滩 12.9×11.9 km、南卫滩 7.7×8.9 km；
+#      附图比例 8.29 viewBox 单位/°，换算后分别是 1.4×1.6 / 1.0×0.9 / 0.6×0.7 px。
+#      最小的一块 0.5 px，虚线样式根本画不出来（已用 deviceScaleFactor:4 截图确认）。
+#   ② 方法论上不该画。那是人造图形，把它描出来就等于宣称「这就是东沙的形状」。
+#   ③ 与本图既有惯例不一致。西沙/中沙/南沙/黄岩岛/曾母暗沙本来就是点状符号，
+#      没有任何一处的「面积不足 1 像素」是靠画轮廓解决的。
+#
+# 故东沙拆成三个点，样式按性质区分 —— 这是**唯一的实质改进**：
+# 既有的一个「东沙群岛」实心点会被误读为「东沙是一块陆地」，而实际上
+# 东沙群岛的主体（北卫滩 −11 m、南卫滩 −58 m）完全没入水下。
+DONGSHA_PTS = []
+for _aid, _a in AREAS.items():
+    _ln, _la = _a['coordinates']
+    DONGSHA_PTS.append({
+        'id': _aid,
+        'n': _a['name'],
+        'p': _a['parent'],
+        'll': [_la, _ln],        # [lat, lng]，与 ISLES / MT / LK 一致
+        'kind': _a['kind'],
+        'depth': _a['depth_m'],
+        'note': _a['note'],
+    })
 
 # ---------------- 组装 ----------------
 prov_map = {p['ad']: p for p in geo['provinces']}
@@ -352,6 +385,9 @@ for rid, pos in RIVER_LABEL.items():
     if rid not in rivers:
         raise SystemExit('RIVER_LABEL 指定的河流不存在: %s' % rid)
     rivers[rid]['lp'] = pos
+
+# 与 geo.py 一致的整数化倍数：几何坐标在 geo.json 中以「度 × SC」存储
+SC = 1000.0
 
 # 区划成员 -> 引用（避免几何重复存储）
 region_members = {}
@@ -501,6 +537,7 @@ data = {
     'info': PROV_INFO,
     'extraCities': EXTRA_CITIES,
     'isles': ISLES,
+    'dongsha': DONGSHA_PTS,
 }
 
 p = os.path.join(OUT, 'data.json')
@@ -508,7 +545,42 @@ with open(p, 'w', encoding='utf-8') as f:
     json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
 print('data.json bytes', os.path.getsize(p))
 print('regions', len(data['regions']), 'mountains', len(MT), 'lakes', len(LK), 'rivers', len(rivers),
-      'isles', len(ISLES))
+      'isles', len(ISLES), 'dongsha', len(DONGSHA_PTS))
 miss = [ad for ad in prov_map if ad not in prov_regions]
 print('未归入任何一级区划的省级单位:', miss)
-print('构建门禁: 山脉注记落点 ✓  省级要素归属 ✓  补充河流缺失主张 ✓')
+
+# 门禁 4：东沙群岛的「岛 / 礁」细分声明必须齐全且自洽。
+# 这条门禁的存在理由：AREAS 同时驱动 geo.py 的「摘除人造轮廓」逻辑与本处的符号
+# 生成。一旦声明与数据脱钩（上游改了归属、改了形状导致匹配失效），就会表现成
+# 「图上既没有区划色块、也没有岛礁符号」—— 南海中部凭空少三块，
+# 而其余门禁（山脉、归属、河流）都不会察觉。故必须显式校验。
+_bad = []
+_seen = set()
+for _a in DONGSHA_PTS:
+    if _a['id'] in _seen:
+        _bad.append('%s：id 重复' % _a['id'])
+    _seen.add(_a['id'])
+    if _a['kind'] not in ('cay', 'bank'):
+        _bad.append('%s：kind 取值非法（%r）' % (_a['n'], _a['kind']))
+    if _a['kind'] == 'bank' and _a['depth'] >= 0:
+        _bad.append('%s：标为沉水礁（bank）但水深 %s 未在水面以下' % (_a['n'], _a['depth']))
+    if _a['kind'] == 'cay' and _a['depth'] < 0:
+        _bad.append('%s：标为露出岛（cay）但水深 %s 在水面以下' % (_a['n'], _a['depth']))
+    if not (0 <= _a['ll'][0] <= 54 and 73 <= _a['ll'][1] <= 136):
+        _bad.append('%s：坐标越出中国范围 %s' % (_a['n'], _a['ll']))
+if _bad:
+    raise SystemExit('东沙群岛细分符号声明不成立:\n  ' + '\n  '.join(_bad))
+if len(DONGSHA_PTS) != 3:
+    raise SystemExit('东沙群岛细分符号应为 3 个（东沙岛 / 北卫滩 / 南卫滩），'
+                     '实得 %d 个：声明表与数据可能已脱钩' % len(DONGSHA_PTS))
+# ISLES 里必须**保留**「东沙群岛」这一个条目。理由（2026-09-16 更新）：
+#   · 它是该群岛在数据层的**归属记录** —— ISLES 是「南海诸岛主要岛群」的完整清单，
+#     东沙是四大群岛之一，删掉会让这份清单残缺；
+#   · 前端的 `ISLES_SUPERSEDED` 是按**名称**跳过渲染的。主图已整体不画东沙，
+#     但在**附图**里该代表点仍需跳过（它与东沙岛点仅差 0.3 单位，同画会叠出白边），
+#     渲染由 DONGSHA_PTS 的细分符号承担。删掉条目会让这条跳过规则静默失效。
+# 这两份清单分处 Python 与 JS、无法共享常量，故只能在构建期按名称做一次一致性检查。
+if not any(_t[0] == '东沙群岛' for _t in ISLES):
+    raise SystemExit('ISLES 中缺少「东沙群岛」条目：它是群岛归属记录，'
+                     '且附图依赖 ISLES_SUPERSEDED 按名称跳过该点的渲染，不可删除')
+print('构建门禁: 山脉注记落点 ✓  省级要素归属 ✓  补充河流缺失主张 ✓  东沙岛礁细分 ✓')
